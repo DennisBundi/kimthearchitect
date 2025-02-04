@@ -29,14 +29,13 @@ export default function Navbar() {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link href="/" className="flex items-center">
-            <div className="relative w-[150px] h-[50px]">
+            <div className="relative w-auto h-[70px]">
               <Image
-                src="/logo.jpeg"
-                alt="Kimthearchitect Logo"
-                fill
-                className="object-contain"
+                src="/mainlogo.svg"
+                alt="Kim The Architect Logo"
+                width={150}
+                height={70}
                 priority
-                sizes="150px"
               />
             </div>
           </Link>
