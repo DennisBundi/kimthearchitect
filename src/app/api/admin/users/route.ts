@@ -3,49 +3,43 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL')
+}
+if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY')
+}
 
-const supabase = createClient(supabaseUrl, supabaseKey)
-
-// Create a single supabase client for interacting with your database
 const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   {
     auth: {
       autoRefreshToken: false,
-      persistSession: false
-    }
+      persistSession: false,
+    },
   }
 )
 
-export async function GET(request: Request) {
-  // Create a Supabase client for checking admin status
-  const cookieStore = cookies()
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-
+export async function GET() {
   try {
-    // First verify if the requesting user is admin
-    const { data: { user } } = await supabase.auth.getUser()
+    console.log('Fetching users...')
+    console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+    
+    const { data: users, error } = await supabaseAdmin
+      .from('users')
+      .select('*')
 
-    if (!user || user.email !== 'kimthearchitect0@gmail.com') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+    if (error) {
+      console.error('Supabase error:', error)
+      throw error
     }
 
-    // If user is admin, fetch all users using admin client
-    const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers()
-    
-    if (error) throw error
-
-    return NextResponse.json({ users })
+    return Response.json(users)
   } catch (error) {
-    console.error('Error fetching users:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch users' },
+    console.error('Error in GET route:', error)
+    return Response.json(
+      { error: 'Error fetching users' }, 
       { status: 500 }
     )
   }
