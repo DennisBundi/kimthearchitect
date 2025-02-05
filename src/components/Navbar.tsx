@@ -4,17 +4,42 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { motion, useScroll } from 'framer-motion'
 import Image from 'next/image'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import Container from '@/components/Container'
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const { scrollY } = useScroll()
   const [isScrolled, setIsScrolled] = useState(false)
+  const [user, setUser] = useState<any>(null)
+  const supabase = createClientComponentClient()
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+    }
+    getUser()
+
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [supabase])
 
   useEffect(() => {
     return scrollY.onChange((latest) => {
       setIsScrolled(latest > 50)
     })
   }, [scrollY])
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+  }
+
+  const isAdmin = user?.email === 'kimthearchitect0@gmail.com'
 
   return (
     <motion.nav
@@ -25,53 +50,76 @@ export default function Navbar() {
       animate={{ y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center">
+      <Container>
+        <div className="px-4 sm:px-6 lg:px-8 flex items-center justify-between h-20">
           {/* Logo */}
-          <Link href="/" className="flex items-center">
-            <div className="relative w-auto h-[70px]">
-              <Image
-                src="/mainlogo.svg"
-                alt="Kim The Architect Logo"
-                width={150}
-                height={70}
-                priority
-              />
-            </div>
-          </Link>
+          <div className="flex items-center">
+            <Link href="/" className="flex items-center">
+              <div className="relative w-auto h-[70px]">
+                <Image
+                  src="/mainlogo.svg"
+                  alt="Kim The Architect Logo"
+                  width={300}
+                  height={132}
+                  priority
+                  className="h-12 w-auto"
+                />
+              </div>
+            </Link>
+          </div>
 
           {/* Navigation Links and Auth Buttons */}
-          <div className="hidden md:flex items-center">
+          <div className="flex items-center gap-x-8">
             {/* Nav Links */}
-            <div className="flex space-x-8 mr-8">
-              <Link href="/" className="text-white hover:text-[#DBA463] transition-colors">
+            <div className="flex space-x-8">
+              <Link href="/" className="text-white hover:text-[#C6A87D]">
                 HOME
               </Link>
-              <Link href="/projects" className="text-white hover:text-[#DBA463] transition-colors">
+              <Link href="/projects" className="text-white hover:text-[#C6A87D]">
                 PROJECTS
               </Link>
-              <Link href="/about" className="text-white hover:text-[#DBA463] transition-colors">
+              <Link href="/about" className="text-white hover:text-[#C6A87D]">
                 ABOUT
               </Link>
-              <Link href="/contact" className="text-white hover:text-[#DBA463] transition-colors">
+              <Link href="/contact" className="text-white hover:text-[#C6A87D]">
                 CONTACT
               </Link>
             </div>
 
             {/* Auth Buttons */}
             <div className="flex items-center space-x-4">
-              <Link 
-                href="/login" 
-                className="text-white hover:text-[#DBA463] transition-colors"
-              >
-                Login
-              </Link>
-              <Link 
-                href="/signup" 
-                className="bg-[#DBA463] text-white px-4 py-2 rounded-lg hover:bg-[#DBA463]/90 transition-colors"
-              >
-                Sign Up
-              </Link>
+              {isAdmin && (
+                <Link 
+                  href="/admin/dashboard" 
+                  className="text-[#C6A87D] hover:text-white"
+                >
+                  Dashboard
+                </Link>
+              )}
+
+              {user ? (
+                <button 
+                  onClick={handleSignOut}
+                  className="px-4 py-2 border border-[#C6A87D] text-[#C6A87D] rounded-md hover:bg-[#C6A87D] hover:text-white transition-colors"
+                >
+                  Logout
+                </button>
+              ) : (
+                <>
+                  <Link 
+                    href="/login" 
+                    className="px-4 py-2 border border-[#C6A87D] text-[#C6A87D] rounded-md hover:bg-[#C6A87D] hover:text-white transition-colors"
+                  >
+                    Login
+                  </Link>
+                  <Link 
+                    href="/signup" 
+                    className="px-4 py-2 bg-[#C6A87D] text-white rounded-md hover:bg-[#B59768] transition-colors"
+                  >
+                    Sign Up
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 
@@ -113,7 +161,7 @@ export default function Navbar() {
             </div>
           </motion.div>
         )}
-      </div>
+      </Container>
     </motion.nav>
   )
 } 

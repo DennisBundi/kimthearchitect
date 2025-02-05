@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/package.json",
   "name": "kimtharchitect",
   "version": "0.1.0",
   "private": true,
@@ -10,12 +11,17 @@
   },
   "dependencies": {
     "@geist-ui/core": "^2.3.8",
+    "@heroicons/react": "^2.2.0",
+    "@react-pdf/renderer": "^4.1.6",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/supabase-js": "^2.39.0",
     "@types/uuid": "^10.0.0",
     "framer-motion": "^12.0.6",
+    "lucide-react": "^0.474.0",
     "next": "14.1.0",
     "next-auth": "^4.24.11",
+    "nodemailer": "^6.10.0",
+    "pdf-lib": "^1.17.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.5.1",
@@ -23,7 +29,9 @@
     "uuid": "^11.0.5"
   },
   "devDependencies": {
+    "@types/json-schema": "^7.0.15",
     "@types/node": "^20",
+    "@types/nodemailer": "^6.4.17",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.4.20",

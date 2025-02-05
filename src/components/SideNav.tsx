@@ -3,10 +3,15 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 export default function SideNav() {
-  const pathname = usePathname()
+  const pathname = usePathname() || '';
   
   // Check if we're in the admin section and highlight "Manage Projects" for all admin routes
   const isAdminSection = pathname.startsWith('/admin')
+
+  // If you're using the pathname in a comparison, you can do:
+  const isActive = (path: string) => {
+    return pathname === path;
+  };
 
   return (
     <div className="w-64 bg-[#1B2028] min-h-screen p-4">
@@ -15,7 +20,7 @@ export default function SideNav() {
           <Link
             href="/"
             className={`block px-4 py-2 rounded-lg transition-colors ${
-              pathname === '/' ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
+              isActive('/') ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
             }`}
           >
             Home
@@ -23,7 +28,7 @@ export default function SideNav() {
           <Link
             href="/about"
             className={`block px-4 py-2 rounded-lg transition-colors ${
-              pathname === '/about' ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
+              isActive('/about') ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
             }`}
           >
             About
@@ -31,7 +36,7 @@ export default function SideNav() {
           <Link
             href="/projects"
             className={`block px-4 py-2 rounded-lg transition-colors ${
-              pathname === '/projects' ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
+              isActive('/projects') ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
             }`}
           >
             Projects
@@ -39,7 +44,7 @@ export default function SideNav() {
           <Link
             href="/contact"
             className={`block px-4 py-2 rounded-lg transition-colors ${
-              pathname === '/contact' ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
+              isActive('/contact') ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
             }`}
           >
             Contact
@@ -52,7 +57,7 @@ export default function SideNav() {
             <Link
               href="/admin/dashboard"
               className={`block px-4 py-2 rounded-lg transition-colors ${
-                pathname === '/admin/dashboard' ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
+                isActive('/admin/dashboard') ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
               }`}
             >
               Dashboard
@@ -78,15 +83,31 @@ export default function SideNav() {
             <Link
               href="/admin/users"
               className={`block px-4 py-2 rounded-lg transition-colors ${
-                pathname === '/admin/users' ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
+                isActive('/admin/users') ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
               }`}
             >
               Manage Users
             </Link>
             <Link
+              href="/admin/invoices"
+              className={`block px-4 py-2 rounded-lg transition-colors ${
+                isActive('/admin/invoices') ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
+              }`}
+            >
+              Invoices
+            </Link>
+            <Link
+              href="/admin/quotations"
+              className={`block px-4 py-2 rounded-lg transition-colors ${
+                isActive('/admin/quotations') ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
+              }`}
+            >
+              Quotations
+            </Link>
+            <Link
               href="/admin/settings"
               className={`block px-4 py-2 rounded-lg transition-colors ${
-                pathname === '/admin/settings' ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
+                isActive('/admin/settings') ? 'text-[#C6A87D]' : 'text-white hover:text-[#C6A87D]'
               }`}
             >
               Settings

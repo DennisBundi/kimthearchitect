@@ -1,53 +1,36 @@
-'use client'
+"use client"
 
 import { useEffect, useState } from 'react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { User } from '@supabase/supabase-js'
 import { FiEdit2, FiTrash2, FiUserPlus } from 'react-icons/fi'
-
-interface User {
-  id: string
-  email?: string
-  created_at: string
-  last_sign_in_at?: string
-  user_metadata: {
-    first_name?: string
-    last_name?: string
-    role?: string
-  }
-}
 
 export default function ManageUsers() {
   const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
+    async function fetchUsers() {
+      try {
+        const { data, error } = await supabase
+          .from('users')  // Make sure this matches your Supabase table name
+          .select('*')
+
+        if (error) {
+          throw error
+        }
+
+        setUsers(data || [])
+        setError(null)
+      } catch (err) {
+        console.error('Error fetching users:', err)
+        setError('Failed to fetch users')
+      }
+    }
+
     fetchUsers()
   }, [])
-
-  async function fetchUsers() {
-    try {
-      const response = await fetch('/api/admin/users')
-      if (!response.ok) {
-        throw new Error('Failed to fetch users')
-      }
-      const data = await response.json()
-      setUsers(data.users || [])
-      setError(null)
-    } catch (error: any) {
-      console.error('Error:', error)
-      setError(error.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading users...</div>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-6">

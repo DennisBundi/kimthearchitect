@@ -4,13 +4,10 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'ahieansubrrmhinfib.supabase.co',
+        hostname: 'ahieansubrrmhinfibh.supabase.co',
         port: '',
-        pathname: '/storage/v1/object/public/**',
+        pathname: '/storage/v1/object/public/project-images/**',
       },
-    ],
-    domains: [
-      'ahieansubrrmhhinfibb.supabase.co'  // Add your Supabase project domain
     ],
   },
   // Add other Next.js config options as needed

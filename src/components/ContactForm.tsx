@@ -1,41 +1,35 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import toast from 'react-hot-toast'
 
 export default function ContactForm() {
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phone: '',
     message: ''
   })
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [error, setError] = useState('')
+
+  const supabase = createClientComponentClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError('')
-    setSuccess(false)
 
     try {
-      const { error: submitError } = await supabase
+      const { error } = await supabase
         .from('contacts')
         .insert([formData])
 
-      if (submitError) throw submitError
+      if (error) throw error
 
-      setSuccess(true)
-      setFormData({ name: '', email: '', phone: '', message: '' })
-    } catch (err: any) {
-      setError('Failed to send message. Please try again.')
-      console.error('Error:', err)
+      toast.success('Message sent successfully!')
+      setFormData({ name: '', email: '', message: '' })
+    } catch (error) {
+      toast.error('Failed to send message. Please try again.')
+      console.error('Error:', error)
     } finally {
       setLoading(false)
     }
@@ -44,7 +38,7 @@ export default function ContactForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <label htmlFor="name" className="block text-sm font-medium text-white/80">
+        <label htmlFor="name" className="block text-[#C6A87D] mb-2">
           Name
         </label>
         <input
@@ -53,12 +47,12 @@ export default function ContactForm() {
           required
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className="mt-1 block w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#DBA463] focus:border-transparent"
+          className="w-full p-3 rounded-lg bg-[#232D3F] text-white border border-gray-700 focus:border-[#C6A87D] focus:outline-none"
         />
       </div>
 
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-white/80">
+        <label htmlFor="email" className="block text-[#C6A87D] mb-2">
           Email
         </label>
         <input
@@ -67,50 +61,28 @@ export default function ContactForm() {
           required
           value={formData.email}
           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          className="mt-1 block w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#DBA463] focus:border-transparent"
+          className="w-full p-3 rounded-lg bg-[#232D3F] text-white border border-gray-700 focus:border-[#C6A87D] focus:outline-none"
         />
       </div>
 
       <div>
-        <label htmlFor="phone" className="block text-sm font-medium text-white/80">
-          Phone Number
-        </label>
-        <input
-          type="tel"
-          id="phone"
-          value={formData.phone}
-          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-          className="mt-1 block w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#DBA463] focus:border-transparent"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="message" className="block text-sm font-medium text-white/80">
+        <label htmlFor="message" className="block text-[#C6A87D] mb-2">
           Message
         </label>
         <textarea
           id="message"
           required
-          rows={4}
           value={formData.message}
           onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-          className="mt-1 block w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#DBA463] focus:border-transparent"
+          rows={4}
+          className="w-full p-3 rounded-lg bg-[#232D3F] text-white border border-gray-700 focus:border-[#C6A87D] focus:outline-none"
         />
       </div>
-
-      {error && (
-        <p className="text-red-400 text-sm">{error}</p>
-      )}
-
-      {success && (
-        <p className="text-green-400 text-sm">Message sent successfully! We'll get back to you soon.</p>
-      )}
 
       <button
         type="submit"
         disabled={loading}
-        className={`w-full py-3 px-4 rounded-lg bg-[#DBA463] text-white hover:bg-[#DBA463]/90 transition-colors
-          ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+        className="w-full bg-[#C6A87D] text-white py-3 px-6 rounded-lg hover:bg-[#B59768] transition-colors disabled:opacity-50"
       >
         {loading ? 'Sending...' : 'Send Message'}
       </button>
