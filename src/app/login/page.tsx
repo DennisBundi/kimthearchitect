@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
+import { signIn } from 'next-auth/react'
 
 function LoginContent() {
   const [email, setEmail] = useState('')
@@ -12,7 +13,7 @@ function LoginContent() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') || '/'
+  const callbackUrl = searchParams?.get('callbackUrl') || '/'
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,32 +23,24 @@ function LoginContent() {
     try {
       console.log('Attempting login with:', email)
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.toLowerCase().trim(),
+      const res = await signIn('credentials', {
+        redirect: false,
+        email,
         password,
+        callbackUrl,
       })
 
-      if (error) {
-        console.error('Login error:', error)
-        throw error
-      }
-
-      if (data.user) {
-        console.log('Login successful:', data.user.email)
-        
-        // Directly navigate based on user email
-        if (data.user.email?.toLowerCase() === 'kimthearchitect0@gmail.com'.toLowerCase()) {
-          // Force a hard navigation to the admin page
-          console.log('Admin user detected, redirecting to /admin')
-          window.location.href = '/admin'
-        } else {
-          console.log('Regular user detected, redirecting to:', callbackUrl)
-          window.location.href = callbackUrl
-        }
+      if (!res?.error) {
+        console.log('Login successful:', email)
+        router.push(callbackUrl)
+        router.refresh()
+      } else {
+        console.error('Login error:', res.error)
+        setError('Invalid email or password')
       }
     } catch (error: any) {
       console.error('Error in login:', error)
-      setError(error.message)
+      setError(error?.message || 'An error occurred')
     } finally {
       setLoading(false)
     }
