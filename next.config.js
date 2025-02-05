@@ -10,6 +10,7 @@ const nextConfig = {
       },
     ],
   },
+  output: 'standalone',
   // Add other Next.js config options as needed
 }
 
