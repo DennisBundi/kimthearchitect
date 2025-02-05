@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 
 interface InvoiceItem {
   quantity: string;
@@ -18,6 +19,9 @@ export default function InvoicesPage() {
   const [msValue, setMsValue] = useState('');
   const [date, setDate] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('001');
+  const [receivedDate, setReceivedDate] = useState('');
+  const [receivedBy, setReceivedBy] = useState('');
+  const [signerName, setSignerName] = useState('');
 
   useEffect(() => {
     // Fetch the last invoice number from your database/storage
@@ -207,12 +211,47 @@ export default function InvoicesPage() {
             </div>
           </div>
 
-          {/* Footer with auto-generated number */}
+          {/* Updated Footer with larger signature image */}
           <div className="mt-8">
             <p className="mb-2">E&O.E No. {invoiceNumber}</p>
             <p className="mb-4">Account are due on demand.</p>
-            <p className="mb-2">Received by:___________________________ Date:___________</p>
-            <p>Name:________________________________ Signature:________</p>
+            <div className="mb-4 flex items-baseline">
+              <span className="mr-2">Received by:</span>
+              <input
+                type="text"
+                value={receivedBy}
+                onChange={(e) => setReceivedBy(e.target.value)}
+                className="border-b border-gray-300 focus:outline-none focus:border-blue-500 flex-1 mx-2"
+                placeholder="Enter name"
+              />
+              <span className="mx-2">Date:</span>
+              <input
+                type="date"
+                value={receivedDate}
+                onChange={(e) => setReceivedDate(e.target.value)}
+                className="border-b border-gray-300 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div className="flex items-baseline">
+              <span className="mr-2">Name:</span>
+              <input
+                type="text"
+                value={signerName}
+                onChange={(e) => setSignerName(e.target.value)}
+                className="border-b border-gray-300 focus:outline-none focus:border-blue-500 flex-1 mx-2"
+                placeholder="Enter name"
+              />
+              <span className="mx-2">Signature:</span>
+              <div className="relative w-48 h-24">
+                <Image
+                  src="/signature.png"
+                  alt="Signature"
+                  fill
+                  style={{ objectFit: 'contain' }}
+                  priority
+                />
+              </div>
+            </div>
           </div>
 
           {/* Generate Button */}
