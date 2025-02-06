@@ -4,8 +4,9 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { FiHome, FiUsers, FiSettings, FiFolder, FiMenu, FiLogOut, FiPieChart, FiMail } from 'react-icons/fi'
+import { FiHome, FiUsers, FiSettings, FiFolder, FiMenu, FiLogOut, FiPieChart, FiMail, FiFileText } from 'react-icons/fi'
 import { Toaster } from 'react-hot-toast'
+import { span } from 'framer-motion/client'
 
 export default function AdminLayout({
   children,
@@ -130,6 +131,14 @@ export default function AdminLayout({
                 <FiUsers className="mr-3" size={20} />
                 {isSidebarOpen && <span>Manage Users</span>}
               </Link>
+              <Link 
+                href="/admin/Invoices"
+                className={getLinkClasses('/admin/Invoices')}
+              >
+                <FiFileText className="mr-3" size={20} />
+                {isSidebarOpen && <span>Invoice</span>}
+              </Link>
+
               <Link 
                 href="/admin/settings"
                 className={getLinkClasses('/admin/settings')}

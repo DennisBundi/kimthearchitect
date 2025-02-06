@@ -2,19 +2,44 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabaseClient'
 
 export default function LoginPage() {
   const router = useRouter()
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setIsLoading(true)
-    
-    // For now, just log the form submission
-    console.log('Form submitted')
-    setIsLoading(false)
+  const handleLogin = async (e: { preventDefault: () => void; target: any }) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const email = (e.target as any).email.value;
+      const password = (e.target as any).password.value;
+
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
+
+      // Check email and redirect accordingly
+      if (email === 'kimthearchitect0@gmail.com') {
+        router.push('/admin');
+      } else {
+        router.push('/home');
+      }
+    } catch (error) {
+      setError('An error occurred during login');
+      console.error('Login error:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -25,7 +50,7 @@ export default function LoginPage() {
             Admin Login
           </h2>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
           <div className="rounded-md shadow-sm space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
