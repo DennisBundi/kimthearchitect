@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { FiHome, FiUsers, FiSettings, FiFolder, FiMenu, FiLogOut, FiPieChart, FiMail, FiFileText } from 'react-icons/fi'
 import { Toaster } from 'react-hot-toast'
 import { span } from 'framer-motion/client'
+import { DocumentDuplicateIcon } from '@heroicons/react/24/outline'
 
 export default function AdminLayout({
   children,
@@ -137,6 +138,16 @@ export default function AdminLayout({
               >
                 <FiFileText className="mr-3" size={20} />
                 {isSidebarOpen && <span>Invoice</span>}
+              </Link>
+
+              <Link
+                href="/admin/quotations"
+                className={`flex items-center space-x-3 p-4 text-base font-medium transition-colors ${
+                  pathname === '/admin/quotations' ? 'bg-[#DBA463] text-white' : 'text-white hover:bg-white/5'
+                }`}
+              >
+                <DocumentDuplicateIcon className="w-5 h-5" />
+                <span className="text-base">Quotations</span>
               </Link>
 
               <Link 
