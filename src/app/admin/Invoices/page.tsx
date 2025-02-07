@@ -62,7 +62,7 @@ export default function InvoicesPage() {
       
       // Update last receipt number
       if (data.length > 0) {
-        const maxNumber = Math.max(...data.map(receipt => {
+        const maxNumber = Math.max(...data.map((receipt: Receipt) => {
           const num = parseInt(receipt.receipt_number.split('-')[1]);
           return isNaN(num) ? 0 : num;
         }));
@@ -215,11 +215,6 @@ export default function InvoicesPage() {
     </table>
   );
 
-  const handleReceiptModalClose = () => {
-    setIsReceiptModalOpen(false);
-    fetchReceipts(); // Refresh the receipts list
-  };
-
   return (
     <div className="bg-white/5 rounded-lg p-6">
       {/* Tabs */}
@@ -359,7 +354,7 @@ export default function InvoicesPage() {
       {isReceiptModalOpen && (
         <ReceiptModal 
           isOpen={isReceiptModalOpen}
-          onClose={handleReceiptModalClose}
+          onClose={() => setIsReceiptModalOpen(false)}
           currentReceiptNumber={lastReceiptNumber}
         />
       )}
