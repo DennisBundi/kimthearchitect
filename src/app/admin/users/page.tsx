@@ -52,13 +52,7 @@ export default function ManageUsers() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">Manage Users</h1>
-        <button
-          className="flex items-center px-4 py-2 bg-[#DBA463] text-white rounded-lg hover:bg-[#DBA463]/90 transition-colors"
-          onClick={() => {/* Add new user logic */}}
-        >
-          <FiUserPlus className="mr-2" />
-          Add New User
-        </button>
+        
       </div>
 
       {error && (
