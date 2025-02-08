@@ -1,17 +1,16 @@
 'use client'
 
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useEffect, useState } from 'react'
 import { FiEdit2, FiTrash2, FiUserPlus } from 'react-icons/fi'
 
 interface User {
   id: string
-  email?: string
+  email: string
   created_at: string
-  last_sign_in_at?: string
   user_metadata: {
-    first_name?: string
-    last_name?: string
-    role?: string
+    full_name?: string
+    phone?: string
   }
 }
 
@@ -21,25 +20,25 @@ export default function ManageUsers() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    async function fetchUsers() {
+      try {
+        const response = await fetch('/api/admin/users')
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || 'Failed to fetch users')
+        }
+        const data = await response.json()
+        setUsers(data.users || [])
+      } catch (error: any) {
+        console.error('Error:', error)
+        setError(error.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
     fetchUsers()
   }, [])
-
-  async function fetchUsers() {
-    try {
-      const response = await fetch('/api/admin/users')
-      if (!response.ok) {
-        throw new Error('Failed to fetch users')
-      }
-      const data = await response.json()
-      setUsers(data.users || [])
-      setError(null)
-    } catch (error: any) {
-      console.error('Error:', error)
-      setError(error.message)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   if (loading) {
     return (
@@ -74,13 +73,16 @@ export default function ManageUsers() {
             <thead>
               <tr className="bg-black/20">
                 <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
                   Email
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
-                  Created At
+                  Phone Number
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
-                  Last Sign In
+                  Created At
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-white/60 uppercase tracking-wider">
                   Actions
@@ -91,18 +93,17 @@ export default function ManageUsers() {
               {users.map((user) => (
                 <tr key={user.id} className="hover:bg-white/5">
                   <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-white">{user.user_metadata?.full_name || 'N/A'}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-white">{user.email}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-white/60">{user.user_metadata?.phone || 'N/A'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-white/60">
                       {new Date(user.created_at).toLocaleDateString()}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-white/60">
-                      {user.last_sign_in_at 
-                        ? new Date(user.last_sign_in_at).toLocaleDateString()
-                        : 'Never'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">

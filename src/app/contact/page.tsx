@@ -243,9 +243,14 @@ export default function Contact() {
       {/* Map Section */}
       <section className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
+          <h2 className="text-2xl font-bold text-white mb-4">Our Location</h2>
+          <div className="flex items-center text-white/80 mb-6">
+            <FaMapMarkerAlt className="w-5 h-5 text-[#DBA463] mr-4" />
+            <span>THE PREMIER NORTH PARK HUB, OFF EASTERN BYPASS, P. O. BOX 51584– 00100, NAIROBI.</span>
+          </div>
           <div className="relative h-[400px] rounded-lg overflow-hidden">
             <iframe
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d255281.19036273!2d36.70730744863281!3d-1.3028617999999908!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x182f1172d84d49a7%3A0xf7cf0254b297924c!2sNairobi%2C%20Kenya!5e0!3m2!1sen!2sus!4v1645089415897!5m2!1sen!2sus"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15952.334546961544!2d36.96980073273916!3d-1.1691583999999897!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x182f415fd63f1dab%3A0xf431ba00fee1f3c3!2sEastern%20Bypass%2C%20Ruiru!5e0!3m2!1sen!2ske!4v1707401548603!5m2!1sen!2ske&iwloc=B"
               width="100%"
               height="100%"
               style={{ border: 0 }}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, AwaitedReactNode, JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal } from 'react'
+import { useState, useEffect, AwaitedReactNode, JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal, useCallback } from 'react'
 import { InvoiceModal } from './InvoiceModal'
 import { ReceiptModal } from '../Receipts/ReceiptModal'
 import { TrashIcon, PencilIcon } from '@heroicons/react/24/outline'
@@ -20,27 +20,37 @@ export default function InvoicesPage() {
   const [monthFilter, setMonthFilter] = useState('');
   const [yearFilter, setYearFilter] = useState('');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingReceipts, setIsLoadingReceipts] = useState(false);
 
   // Fetch data based on active tab
   useEffect(() => {
-    if (activeTab === 'invoices') {
-      fetchInvoices();
-    } else {
-      fetchReceipts();
-    }
+    const fetchData = () => {
+      if (activeTab === 'invoices') {
+        fetchInvoices();
+      } else {
+        fetchReceipts();
+      }
+    };
+
+    fetchData();
   }, [activeTab]);
 
   const fetchInvoices = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      const data = await invoiceService.getInvoices();
+      const data = await invoiceService.getInvoices({
+        status: undefined,
+        startDate: undefined,
+        endDate: undefined
+      });
       setInvoices(data);
-      
+      setFilteredInvoices(data);
+
       // Update last invoice number
-      if (data.length > 0) {
+      if (data && data.length > 0) {
         const maxNumber = Math.max(...data.map(invoice => {
           const num = parseInt(invoice.invoice_number.split('-')[1]);
           return isNaN(num) ? 0 : num;
@@ -97,6 +107,48 @@ export default function InvoicesPage() {
     }
   };
 
+  // Apply filters
+  const applyFilters = useCallback(() => {
+    const filtered = invoices.filter(invoice => {
+      // Status filter
+      if (statusFilter !== 'all' && invoice.status !== statusFilter) {
+        return false;
+      }
+
+      // Date filter
+      if (dateFilter) {
+        const invoiceDate = new Date(invoice.date).toISOString().split('T')[0];
+        if (invoiceDate !== dateFilter) {
+          return false;
+        }
+      }
+
+      // Month and Year filter
+      if (monthFilter && yearFilter) {
+        const invoiceDate = new Date(invoice.date);
+        const invoiceMonth = (invoiceDate.getMonth() + 1).toString();
+        const invoiceYear = invoiceDate.getFullYear().toString();
+        if (invoiceMonth !== monthFilter || invoiceYear !== yearFilter) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    setFilteredInvoices(filtered);
+  }, [statusFilter, dateFilter, monthFilter, yearFilter, invoices]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchInvoices();
+  }, []);
+
+  // Apply filters whenever they change
+  useEffect(() => {
+    applyFilters();
+  }, [statusFilter, dateFilter, monthFilter, yearFilter, applyFilters]);
+
   const renderInvoicesTable = () => (
     <table className="w-full text-white">
       <thead className="bg-white/10">
@@ -114,12 +166,12 @@ export default function InvoicesPage() {
           <tr>
             <td colSpan={6} className="px-6 py-4 text-center">Loading...</td>
           </tr>
-        ) : invoices.length === 0 ? (
+        ) : filteredInvoices.length === 0 ? (
           <tr>
             <td colSpan={6} className="px-6 py-4 text-center">No invoices found</td>
           </tr>
         ) : (
-          invoices.map((invoice) => (
+          filteredInvoices.map((invoice) => (
             <tr key={invoice.id} className="border-b border-white/10 hover:bg-white/5">
               <td className="px-6 py-4">{invoice.invoice_number}</td>
               <td className="px-6 py-4">{invoice.client_name}</td>
@@ -274,9 +326,7 @@ export default function InvoicesPage() {
             className="bg-gray-800 text-white border border-white/20 rounded px-3 py-1 text-sm focus:outline-none focus:border-[#DBA463]"
           >
             <option value="all" className="bg-gray-800">All</option>
-            <option value="Paid" className="bg-gray-800">
-              {activeTab === 'invoices' ? 'Paid' : 'Completed'}
-            </option>
+            <option value="Paid" className="bg-gray-800">Paid</option>
             <option value="Pending" className="bg-gray-800">Pending</option>
           </select>
         </div>
