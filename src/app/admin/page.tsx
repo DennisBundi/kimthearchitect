@@ -152,60 +152,8 @@ export default function AdminDashboard() {
     )
   }
 
-  async function fetchGraphData(days: string, type: string) {
-    try {
-      const endDate = new Date()
-      const startDate = new Date()
-      startDate.setDate(startDate.getDate() - parseInt(days))
-
-      // Fetch projects within date range
-      const { data: projects, error } = await supabase
-        .from('projects')
-        .select('*')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-
-      if (error) {
-        console.error('Error fetching graph data:', error)
-        return
-      }
-
-      // Filter by project type if not 'all'
-      let filteredProjects = projects || []
-      if (type !== 'all') {
-        filteredProjects = filteredProjects.filter(project => project.status === type)
-      }
-
-      // Update stats with new data
-      setStats(prevStats => ({
-        ...prevStats,
-        projectsData: processProjectData(filteredProjects, days),
-        userDistribution: prevStats.userDistribution // Keep existing user distribution
-      }))
-    } catch (error) {
-      console.error('Error in fetchGraphData:', error)
-    }
-  }
-
-  // Helper function to process project data for the graph
-  function processProjectData(projects: any[], days: string) {
-    const data = []
-    const daysNum = parseInt(days)
-    
-    // Create data points for the graph
-    for (let i = 0; i < 6; i++) {
-      const date = new Date()
-      date.setDate(date.getDate() - (daysNum * i / 5))
-      
-      const count = projects.filter(project => {
-        const projectDate = new Date(project.created_at)
-        return projectDate >= date
-      }).length
-      
-      data.unshift(count)
-    }
-    
-    return data
+  function fetchGraphData(value: string, projectType: string) {
+    throw new Error('Function not implemented.')
   }
 
   return (
