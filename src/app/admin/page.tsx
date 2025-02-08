@@ -56,6 +56,8 @@ export default function AdminDashboard() {
     projectsData: [],
     userDistribution: []
   })
+  const [dateRange, setDateRange] = useState('7')
+  const [projectType, setProjectType] = useState('all')
 
   useEffect(() => {
     fetchStats()
@@ -150,6 +152,62 @@ export default function AdminDashboard() {
     )
   }
 
+  async function fetchGraphData(days: string, type: string) {
+    try {
+      const endDate = new Date()
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - parseInt(days))
+
+      // Fetch projects within date range
+      const { data: projects, error } = await supabase
+        .from('projects')
+        .select('*')
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString())
+
+      if (error) {
+        console.error('Error fetching graph data:', error)
+        return
+      }
+
+      // Filter by project type if not 'all'
+      let filteredProjects = projects || []
+      if (type !== 'all') {
+        filteredProjects = filteredProjects.filter(project => project.status === type)
+      }
+
+      // Update stats with new data
+      setStats(prevStats => ({
+        ...prevStats,
+        projectsData: processProjectData(filteredProjects, days),
+        userDistribution: prevStats.userDistribution // Keep existing user distribution
+      }))
+    } catch (error) {
+      console.error('Error in fetchGraphData:', error)
+    }
+  }
+
+  // Helper function to process project data for the graph
+  function processProjectData(projects: any[], days: string) {
+    const data = []
+    const daysNum = parseInt(days)
+    
+    // Create data points for the graph
+    for (let i = 0; i < 6; i++) {
+      const date = new Date()
+      date.setDate(date.getDate() - (daysNum * i / 5))
+      
+      const count = projects.filter(project => {
+        const projectDate = new Date(project.created_at)
+        return projectDate >= date
+      }).length
+      
+      data.unshift(count)
+    }
+    
+    return data
+  }
+
   return (
     <div className="space-y-8">
       <h1 className="text-3xl font-bold text-white">Dashboard Overview</h1>
@@ -211,31 +269,49 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between mb-4">
           {/* Filter by date range */}
           <select 
-            className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#DBA463] focus:border-transparent"
+            value={dateRange}
+            className="px-4 py-2 bg-[#1a1f2e] border border-white/10 rounded-lg text-white 
+            focus:outline-none focus:ring-2 focus:ring-[#DBA463] focus:border-transparent
+            appearance-none cursor-pointer hover:bg-[#252b3b]"
+            style={{
+              backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 1rem center',
+              backgroundSize: '1em'
+            }}
             onChange={(e) => {
-              // Add your date range filter logic here
-              console.log('Selected date range:', e.target.value)
+              setDateRange(e.target.value);
+              fetchGraphData(e.target.value, projectType);
             }}
           >
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 3 months</option>
-            <option value="180">Last 6 months</option>
-            <option value="365">Last year</option>
+            <option value="7" className="bg-[#DBA463] text-white hover:bg-[#DBA463]/90">Last 7 days</option>
+            <option value="30" className="bg-[#DBA463] text-white hover:bg-[#DBA463]/90">Last 30 days</option>
+            <option value="90" className="bg-[#DBA463] text-white hover:bg-[#DBA463]/90">Last 3 months</option>
+            <option value="180" className="bg-[#DBA463] text-white hover:bg-[#DBA463]/90">Last 6 months</option>
+            <option value="365" className="bg-[#DBA463] text-white hover:bg-[#DBA463]/90">Last year</option>
           </select>
 
           {/* Filter by project type */}
           <select 
-            className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#DBA463] focus:border-transparent"
+            value={projectType}
+            className="px-4 py-2 bg-[#1a1f2e] border border-white/10 rounded-lg text-white 
+            focus:outline-none focus:ring-2 focus:ring-[#DBA463] focus:border-transparent
+            appearance-none cursor-pointer hover:bg-[#252b3b]"
+            style={{
+              backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 1rem center',
+              backgroundSize: '1em'
+            }}
             onChange={(e) => {
-              // Add your project type filter logic here
-              console.log('Selected project type:', e.target.value)
+              setProjectType(e.target.value);
+              fetchGraphData(dateRange, e.target.value);
             }}
           >
-            <option value="all">All Projects</option>
-            <option value="featured">Featured Projects</option>
-            <option value="active">Active Projects</option>
-            <option value="completed">Completed Projects</option>
+            <option value="all" className="bg-[#DBA463] text-white hover:bg-[#DBA463]/90">All Projects</option>
+            <option value="featured" className="bg-[#DBA463] text-white hover:bg-[#DBA463]/90">Featured Projects</option>
+            <option value="active" className="bg-[#DBA463] text-white hover:bg-[#DBA463]/90">Active Projects</option>
+            <option value="completed" className="bg-[#DBA463] text-white hover:bg-[#DBA463]/90">Completed Projects</option>
           </select>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
