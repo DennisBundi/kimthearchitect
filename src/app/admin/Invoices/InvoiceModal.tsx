@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
 import { invoiceService } from '@/services/invoiceService'
 import { InvoiceItem, Invoice, InvoiceStatus } from '@/types/invoice'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
   const [msValue, setMsValue] = useState('');
   const [isPrinting, setIsPrinting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const invoiceRef = useRef<HTMLDivElement>(null);
 
@@ -77,83 +79,141 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
     setItems(newItems);
   };
 
-  const handleDownloadPDF = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Format the date properly
-      const currentDate = new Date().toISOString();
-      // Convert signature date to string or undefined (not null)
-      const formattedSignatureDate = signatureDate ? new Date(signatureDate).toISOString() : undefined;
+  const calculateTotal = () => {
+    return items.reduce((total, item) => {
+      const amount = parseFloat(item.amount) || 0;
+      const quantity = parseFloat(item.quantity) || 0;
+      return total + (amount * quantity);
+    }, 0);
+  };
 
-      // Calculate total amount from items
-      const totalAmount = items.reduce((sum, item) => {
-        const itemAmount = parseFloat(`${item.amount || '0'}.${item.cents || '0'}`);
-        return sum + (isNaN(itemAmount) ? 0 : itemAmount);
+  const handleSaveInvoice = async () => {
+    try {
+      const supabase = createClientComponentClient();
+      
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No authenticated session found');
+
+      // Format items and ensure amounts are numbers
+      const formattedItems = items.map(item => ({
+        quantity: item.quantity || '0',
+        description: item.description || '',
+        amount: parseFloat(item.amount.replace(/,/g, '')) || 0, // Remove commas and convert to number
+        cents: item.cents || '00'
+      }));
+
+      // Calculate total amount - ensure it's a number
+      const totalAmount = formattedItems.reduce((sum, item) => {
+        const itemAmount = parseFloat(item.amount.toString().replace(/,/g, '')) || 0;
+        const itemQuantity = parseFloat(item.quantity) || 0;
+        return sum + (itemAmount * itemQuantity);
       }, 0);
 
-      const invoiceData: Invoice = {
+      const invoiceData = {
         invoice_number: `INV-${invoiceNumber}`,
-        client_name: msValue || 'Unknown Client',
-        amount: totalAmount,
-        status: 'Pending' as InvoiceStatus,
-        date: currentDate,
-        items: items.filter(item => item.quantity || item.description || item.amount),
-        ms_value: msValue || undefined,
-        received_by: receivedBy || undefined,
-        receiver_name: name || undefined,
-        signature_date: formattedSignatureDate // Changed from null to undefined
+        date: signatureDate || new Date().toISOString(),
+        client_name: name || '',
+        items: formattedItems,
+        amount: totalAmount, // Ensure this is a number
+        total_amount: totalAmount, // Ensure this is a number
+        status: 'pending',
+        user_id: session.user.id,
+        created_at: new Date().toISOString()
       };
 
-      console.log('Saving invoice:', invoiceData);
+      console.log('Saving invoice with data:', invoiceData); // For debugging
 
-      // Save to Supabase
-      const savedInvoice = await invoiceService.createInvoice(invoiceData);
-      console.log('Invoice saved successfully:', savedInvoice);
+      const { data, error } = await supabase
+        .from('invoices')
+        .insert([invoiceData])
+        .select()
+        .single();
 
-      // Generate and download PDF
-      await generatePDF();
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
-      // Close modal after successful save and download
-      onClose();
+      console.log('Invoice saved successfully:', data);
+      return data;
     } catch (error) {
-      console.error('Error handling invoice:', error);
-      alert('There was an error creating the invoice. Please check the console for details.');
-    } finally {
-      setIsLoading(false);
+      console.error('Error saving invoice:', error);
+      throw error;
     }
   };
 
-  const generatePDF = async () => {
+  const handleDownloadPDF = async () => {
     try {
-      setIsPrinting(true);
-      const element = invoiceRef.current;
-      if (!element) return;
+      setIsGeneratingPDF(true);
+      const content = document.querySelector('[data-pdf-content]') as HTMLDivElement;
+      if (!content) return;
 
-      const canvas = await html2canvas(element, {
+      // Create a deep clone of the content
+      const clone = content.cloneNode(true) as HTMLDivElement;
+      
+      // Style the clone for PDF
+      clone.style.width = '210mm';
+      clone.style.padding = '20mm';
+      clone.style.backgroundColor = 'white';
+      clone.style.position = 'fixed';
+      clone.style.top = '0';
+      clone.style.left = '0';
+      clone.style.zIndex = '-9999';
+      
+      // Hide action buttons in clone
+      const actionButtons = clone.querySelectorAll('.action-button');
+      actionButtons.forEach(button => (button as HTMLElement).style.display = 'none');
+
+      // Add clone to body
+      document.body.appendChild(clone);
+
+      // Wait for clone to render
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff'
+        logging: true,
+        backgroundColor: '#ffffff',
+        allowTaint: true,
+        foreignObjectRendering: true,
+        onclone: (clonedDoc) => {
+          const dateInput = clonedDoc.querySelector('input[type="date"]') as HTMLInputElement;
+          if (dateInput) {
+            // Create a text span to replace the input
+            const dateSpan = clonedDoc.createElement('span');
+            dateSpan.textContent = dateInput.value || new Date().toLocaleDateString();
+            // Replace input with span
+            dateInput.parentNode?.replaceChild(dateSpan, dateInput);
+          }
+        }
       });
 
-      const imgData = canvas.toDataURL('image/png');
+      // Remove clone after capture
+      document.body.removeChild(clone);
+
+      const imgData = canvas.toDataURL('image/png', 1.0);
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
-        format: 'a4'
+        format: 'a4',
+        compress: true
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`invoice-${invoiceNumber}.pdf`);
+      // Add image to PDF with proper dimensions
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, '', 'FAST');
+      pdf.save(`invoice-${Date.now()}.pdf`);
+
+      return true;
     } catch (error) {
       console.error('Error generating PDF:', error);
       throw error;
     } finally {
-      setIsPrinting(false);
+      setIsGeneratingPDF(false);
     }
   };
 
@@ -163,7 +223,7 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg w-[595px] max-h-[90vh] flex flex-col relative">
         <div className="flex-1 overflow-y-auto scrollbar-hide">
-          <div ref={invoiceRef} className="bg-white p-8 m-4">
+          <div ref={invoiceRef} className="bg-white p-8 m-4 modal-content">
             <div className="text-center mb-6">
               <h1 className="text-[24px] font-bold text-[#1a237e] mb-2">
                 Kimthearchitect Consultants And
@@ -192,7 +252,15 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
                 </div>
               </div>
               <div className="text-[12px]">
-                Date: <input type="date" className="border-b border-gray-400 ml-2" />
+                <div className="flex items-center gap-2">
+                  <span>Date:</span>
+                  <input
+                    type="text"
+                    value={signatureDate}
+                    onChange={(e) => setSignatureDate(e.target.value)}
+                    className="border-b border-gray-300 focus:outline-none px-2"
+                  />
+                </div>
               </div>
             </div>
 
@@ -303,7 +371,7 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
                 <div className="flex items-center">
                   <span>Date:</span>
                   <input
-                    type="date"
+                    type="text"
                     value={signatureDate}
                     onChange={(e) => setSignatureDate(e.target.value)}
                     className="flex-1 ml-2 border-b border-gray-400 focus:outline-none focus:border-blue-500"
@@ -322,18 +390,107 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
           </div>
         </div>
 
-        <div className="sticky bottom-0 bg-white p-4 border-t border-gray-200 flex justify-end space-x-3">
-          <button 
-            className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 disabled:opacity-50"
-            onClick={handleDownloadPDF}
-            disabled={isLoading}
+        <div className="flex justify-end space-x-4 p-4 bg-gray-50 rounded-b-lg">
+          <button
+            onClick={async () => {
+              try {
+                setIsGeneratingPDF(true);
+                
+                // First try to save to database
+                console.log('Starting invoice save...');
+                const savedInvoice = await handleSaveInvoice();
+                console.log('Invoice saved successfully:', savedInvoice);
+
+                // Then generate and download PDF
+                console.log('Starting PDF generation...');
+                
+                // Make sure we're selecting the correct content
+                const modalContent = document.querySelector('.modal-content') as HTMLDivElement;
+                if (!modalContent) {
+                  throw new Error('Could not find modal content');
+                }
+
+                // Create a deep clone of the content
+                const clone = modalContent.cloneNode(true) as HTMLDivElement;
+                
+                // Style the clone for PDF
+                clone.style.width = '210mm';
+                clone.style.padding = '20mm';
+                clone.style.backgroundColor = 'white';
+                clone.style.position = 'fixed';
+                clone.style.top = '0';
+                clone.style.left = '0';
+                clone.style.zIndex = '-9999';
+                
+                // Hide buttons and unnecessary elements in clone
+                const buttonsToHide = clone.querySelectorAll('button, .action-button, .close-button');
+                buttonsToHide.forEach(button => (button as HTMLElement).style.display = 'none');
+
+                // Add clone to body
+                document.body.appendChild(clone);
+
+                // Wait for clone to render
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                const canvas = await html2canvas(clone, {
+                  scale: 2,
+                  useCORS: true,
+                  logging: true,
+                  backgroundColor: '#ffffff',
+                  allowTaint: true,
+                  foreignObjectRendering: true,
+                  onclone: (clonedDoc) => {
+                    const dateInput = clonedDoc.querySelector('input[type="date"]') as HTMLInputElement;
+                    if (dateInput) {
+                      // Create a text span to replace the input
+                      const dateSpan = clonedDoc.createElement('span');
+                      dateSpan.textContent = dateInput.value || new Date().toLocaleDateString();
+                      // Replace input with span
+                      dateInput.parentNode?.replaceChild(dateSpan, dateInput);
+                    }
+                  }
+                });
+
+                // Remove clone after capture
+                document.body.removeChild(clone);
+
+                const imgData = canvas.toDataURL('image/png', 1.0);
+                const pdf = new jsPDF({
+                  orientation: 'portrait',
+                  unit: 'mm',
+                  format: 'a4',
+                  compress: true
+                });
+
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+
+                // Add image to PDF with proper dimensions
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, '', 'FAST');
+                
+                // Save the PDF
+                console.log('Saving PDF...');
+                pdf.save(`invoice-${Date.now()}.pdf`);
+                console.log('PDF saved successfully');
+
+                // Close modal after both operations succeed
+                onClose();
+              } catch (error) {
+                console.error('Failed to process invoice:', error);
+                alert(error instanceof Error ? error.message : 'Failed to process invoice. Please try again.');
+              } finally {
+                setIsGeneratingPDF(false);
+              }
+            }}
+            disabled={isGeneratingPDF}
+            className="bg-[#DBA463] text-white px-4 py-2 rounded-lg hover:bg-[#c28a4f] transition-colors disabled:opacity-50"
           >
-            {isLoading ? 'Processing...' : 'Download PDF'}
+            {isGeneratingPDF ? 'Generating PDF...' : 'Download PDF'}
           </button>
-          <button 
-            className="bg-gray-600 text-white px-4 py-2 rounded text-sm hover:bg-gray-700"
+          <button
             onClick={onClose}
-            disabled={isLoading}
+            disabled={isGeneratingPDF}
+            className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
           >
             Close
           </button>

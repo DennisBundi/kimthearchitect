@@ -23,25 +23,30 @@ const supabaseAdmin = createClient(
 
 export async function GET() {
   try {
-    console.log('Fetching users...')
-    console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-    
-    const { data: users, error } = await supabaseAdmin
-      .from('users')
-      .select('*')
+    // Create service role client
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
 
+    // Fetch users with service role
+    const { data: { users }, error } = await supabase.auth.admin.listUsers()
+    
     if (error) {
-      console.error('Supabase error:', error)
-      throw error
+      console.error('Users fetch error:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return Response.json(users)
+    return NextResponse.json({ users })
   } catch (error) {
-    console.error('Error in GET route:', error)
-    return Response.json(
-      { error: 'Error fetching users' }, 
-      { status: 500 }
-    )
+    console.error('Unexpected error:', error)
+    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
   }
 }
 

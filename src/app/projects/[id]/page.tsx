@@ -1,6 +1,6 @@
 'use client'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 
@@ -20,6 +20,7 @@ export default function ProjectDetail() {
   const [project, setProject] = useState<Project | null>(null)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [projectImages, setProjectImages] = useState<string[]>([])
+  const previewRef = useRef<HTMLDivElement>(null)
   const params = useParams()
   const router = useRouter()
   const supabase = createClientComponentClient()
@@ -66,6 +67,12 @@ export default function ProjectDetail() {
     }
   }, [params.id])
 
+  const handleImageSelect = (image: string) => {
+    setSelectedImage(image)
+    // Smooth scroll to preview section
+    previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
   if (!project) {
     return (
       <div className="min-h-screen bg-[#1A1F2E] flex items-center justify-center">
@@ -81,7 +88,7 @@ export default function ProjectDetail() {
     <div className="min-h-screen bg-[#1A1F2E]">
       <Navbar />
 
-      <div className="container mx-auto px-4 py-24">
+      <div className="max-w-[1200px] mx-auto px-4 py-12 pt-[150px]">
         <button 
           onClick={() => router.push('/projects')}
           className="mb-8 text-[#C6A87D] hover:text-white transition-colors flex items-center gap-2"
@@ -100,9 +107,6 @@ export default function ProjectDetail() {
           <div className="bg-gray-800/50 p-6 rounded-lg">
             <h2 className="text-2xl font-bold text-white mb-4">Project Details</h2>
             <div className="space-y-3">
-              {project.client && (
-                <p className="text-gray-300"><span className="text-[#C6A87D]">Client:</span> {project.client}</p>
-              )}
               {project.location && (
                 <p className="text-gray-300"><span className="text-[#C6A87D]">Location:</span> {project.location}</p>
               )}
@@ -113,7 +117,7 @@ export default function ProjectDetail() {
           </div>
         </div>
 
-        <div className="mb-8">
+        <div className="mb-8" ref={previewRef}>
           {selectedImage && (
             <img
               src={selectedImage}
@@ -133,7 +137,7 @@ export default function ProjectDetail() {
                   className={`cursor-pointer rounded-lg overflow-hidden ${
                     selectedImage === image ? 'ring-2 ring-[#C6A87D]' : ''
                   }`}
-                  onClick={() => setSelectedImage(image)}
+                  onClick={() => handleImageSelect(image)}
                 >
                   <img
                     src={image}

@@ -40,7 +40,7 @@ export const invoiceService = {
     }
   },
 
-  async getInvoices() {
+  async getInvoices(p0: { status: string | undefined; startDate: string | undefined; endDate: string | undefined }) {
     try {
       const { data, error } = await supabase
         .from('invoices')
