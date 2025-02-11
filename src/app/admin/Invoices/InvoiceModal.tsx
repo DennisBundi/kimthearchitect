@@ -90,7 +90,7 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
   const handleSaveInvoice = async () => {
     try {
       const supabase = createClientComponentClient();
-      
+
       // Get current session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('No authenticated session found');
@@ -143,15 +143,36 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
     }
   };
 
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF2 = async () => {
     try {
       setIsGeneratingPDF(true);
-      const content = document.querySelector('[data-pdf-content]') as HTMLDivElement;
-      if (!content) return;
+
+      // First try to save to database
+      console.log('Starting invoice save...');
+      const savedInvoice = await handleSaveInvoice();
+      console.log('Invoice saved successfully:', savedInvoice);
+
+      // Then generate and download PDF
+      console.log('Starting PDF generation...');
+
+      // Make sure we're selecting the correct content
+      const modalContent = document.querySelector('.modal-content') as HTMLDivElement;
+      if (!modalContent) {
+        throw new Error('Could not find modal content');
+      }
 
       // Create a deep clone of the content
-      const clone = content.cloneNode(true) as HTMLDivElement;
-      
+      const clone = modalContent.cloneNode(true) as HTMLDivElement;
+
+      // Convert all inputs to spans with their values
+      clone.querySelectorAll('input').forEach((input: HTMLInputElement) => {
+        const span = document.createElement('span');
+        span.textContent = input.value;
+        span.style.width = '100%';
+        span.style.display = 'inline-block';
+        input.parentNode?.replaceChild(span, input);
+      });
+
       // Style the clone for PDF
       clone.style.width = '210mm';
       clone.style.padding = '20mm';
@@ -160,37 +181,43 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
       clone.style.top = '0';
       clone.style.left = '0';
       clone.style.zIndex = '-9999';
-      
-      // Hide action buttons in clone
-      const actionButtons = clone.querySelectorAll('.action-button');
-      actionButtons.forEach(button => (button as HTMLElement).style.display = 'none');
+
+
+      // Update the signature image in the clone
+      const signatureImg = clone.querySelector('img[alt="Signature"]') as HTMLImageElement;
+      if (signatureImg) {
+        const newSignature = new Image();
+        newSignature.src = '/signature.jpeg';
+        newSignature.alt = 'Signature';
+        newSignature.className = signatureImg.className;
+        // Replace the old image with the new one
+        signatureImg.parentNode?.replaceChild(newSignature, signatureImg);
+
+        // Wait for the image to load
+        await new Promise((resolve) => {
+          newSignature.onload = resolve;
+        });
+      }
+
+      // Hide buttons and unnecessary elements in clone
+      const buttonsToHide = clone.querySelectorAll('button, .action-button, .close-button');
+      buttonsToHide.forEach(button => (button as HTMLElement).style.display = 'none');
 
       // Add clone to body
       document.body.appendChild(clone);
 
-      // Wait for clone to render
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait for everything to render
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
-        logging: true,
+        logging: false,
         backgroundColor: '#ffffff',
         allowTaint: true,
-        foreignObjectRendering: true,
-        onclone: (clonedDoc) => {
-          const dateInput = clonedDoc.querySelector('input[type="date"]') as HTMLInputElement;
-          if (dateInput) {
-            // Create a text span to replace the input
-            const dateSpan = clonedDoc.createElement('span');
-            dateSpan.textContent = dateInput.value || new Date().toLocaleDateString();
-            // Replace input with span
-            dateInput.parentNode?.replaceChild(dateSpan, dateInput);
-          }
-        }
+        imageTimeout: 5000, // Increased timeout for images
       });
 
-      // Remove clone after capture
       document.body.removeChild(clone);
 
       const imgData = canvas.toDataURL('image/png', 1.0);
@@ -198,7 +225,6 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
-        compress: true
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -206,16 +232,22 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
 
       // Add image to PDF with proper dimensions
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, '', 'FAST');
-      pdf.save(`invoice-${Date.now()}.pdf`);
+      // pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
 
-      return true;
+      // Save the PDF
+      console.log('Saving PDF...');
+      pdf.save(`invoice-${Date.now()}.pdf`);
+      console.log('PDF saved successfully');
+
+      // Close modal after both operations succeed
+      onClose();
     } catch (error) {
-      console.error('Error generating PDF:', error);
-      throw error;
+      console.error('Failed to process invoice:', error);
+      alert(error instanceof Error ? error.message : 'Failed to process invoice. Please try again.');
     } finally {
       setIsGeneratingPDF(false);
     }
-  };
+  }
 
   if (!isOpen) return null;
 
@@ -224,22 +256,22 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
       <div className="bg-white rounded-lg w-[595px] max-h-[90vh] flex flex-col relative">
         <div className="flex-1 overflow-y-auto scrollbar-hide">
           <div ref={invoiceRef} className="bg-white p-8 m-4 modal-content">
-            <div className="text-center mb-6">
-              <h1 className="text-[24px] font-bold text-[#1a237e] mb-2">
-                Kimthearchitect Consultants And
-              </h1>
-              <h2 className="text-[20px] text-[#1a237e] font-bold mb-3">
-                Construction Logistics
+            <div className="text-center mb-8">
+              <div className="flex justify-center mb-4">
+                <img
+                  src="/mainlogo.svg"
+                  alt="Kimthearchitect Logo"
+                  className="h-20 object-contain"
+                />
+              </div>
+              <h2 className="text-xl font-semibold text-[#1a237e] mb-4">
+                Kimthearchitect LTD
               </h2>
-              <p className="text-[12px] text-gray-600 mb-4">
-                (Architects, Interior Designers, Project Management & Supply Of Construction Materials)
-              </p>
-              <div className="text-[12px] text-gray-600 space-y-1 mb-6">
-                <p>KILIMANI ROAD PLAZA, KILIMANI RD, OFF MENELIK RD.</p>
-                <p>P. O. BOX 51584- 00100,</p>
-                <p>NAIROBI.</p>
-                <p>Cell: 0719 698 588</p>
-                <p>Email: kimthearchitect@gmail.com</p>
+              <div className="text-sm text-gray-600 space-y-1">
+                <p>THE PREMIER NORTH PARK HUB, OFF EASTERN BYPASS</p>
+                <p>P. O. BOX 51584– 00100, NAIROBI</p>
+                <p>Cell: 0719 698 568</p>
+                <p>Email: Kimthearchitect0@gmail.com</p>
               </div>
             </div>
 
@@ -281,7 +313,7 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
                 <tr>
                   <th className="border border-gray-400 p-2 w-20">QUANTITY</th>
                   <th className="border border-gray-400 p-2">DESCRIPTION</th>
-                  <th className="border border-gray-400 p-2 w-24">AMOUNT<br/>Kshs.</th>
+                  <th className="border border-gray-400 p-2 w-24">AMOUNT<br />Kshs.</th>
                   <th className="border border-gray-400 p-2 w-16">Cts.</th>
                 </tr>
               </thead>
@@ -324,7 +356,7 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
                 ))}
                 <tr className="add-row-button">
                   <td colSpan={4} className="border border-gray-400 p-2">
-                    <button 
+                    <button
                       onClick={addNewRow}
                       className="text-blue-600 hover:text-blue-800 text-sm"
                     >
@@ -377,10 +409,10 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
                     className="flex-1 ml-2 border-b border-gray-400 focus:outline-none focus:border-blue-500"
                   />
                 </div>
-                <div className="flex flex-col items-end mt-4">
-                  <img 
-                    src="/signature.jpeg" 
-                    alt="Signature" 
+                <div className="flex flex-col items-end mt-6 signature-section">
+                  <img
+                    src="/signature.jpeg"
+                    alt="Signature"
                     className="h-16 object-contain mb-2"
                   />
                   <p>Signature</p>
@@ -392,96 +424,7 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
 
         <div className="flex justify-end space-x-4 p-4 bg-gray-50 rounded-b-lg">
           <button
-            onClick={async () => {
-              try {
-                setIsGeneratingPDF(true);
-                
-                // First try to save to database
-                console.log('Starting invoice save...');
-                const savedInvoice = await handleSaveInvoice();
-                console.log('Invoice saved successfully:', savedInvoice);
-
-                // Then generate and download PDF
-                console.log('Starting PDF generation...');
-                
-                // Make sure we're selecting the correct content
-                const modalContent = document.querySelector('.modal-content') as HTMLDivElement;
-                if (!modalContent) {
-                  throw new Error('Could not find modal content');
-                }
-
-                // Create a deep clone of the content
-                const clone = modalContent.cloneNode(true) as HTMLDivElement;
-                
-                // Style the clone for PDF
-                clone.style.width = '210mm';
-                clone.style.padding = '20mm';
-                clone.style.backgroundColor = 'white';
-                clone.style.position = 'fixed';
-                clone.style.top = '0';
-                clone.style.left = '0';
-                clone.style.zIndex = '-9999';
-                
-                // Hide buttons and unnecessary elements in clone
-                const buttonsToHide = clone.querySelectorAll('button, .action-button, .close-button');
-                buttonsToHide.forEach(button => (button as HTMLElement).style.display = 'none');
-
-                // Add clone to body
-                document.body.appendChild(clone);
-
-                // Wait for clone to render
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                const canvas = await html2canvas(clone, {
-                  scale: 2,
-                  useCORS: true,
-                  logging: true,
-                  backgroundColor: '#ffffff',
-                  allowTaint: true,
-                  foreignObjectRendering: true,
-                  onclone: (clonedDoc) => {
-                    const dateInput = clonedDoc.querySelector('input[type="date"]') as HTMLInputElement;
-                    if (dateInput) {
-                      // Create a text span to replace the input
-                      const dateSpan = clonedDoc.createElement('span');
-                      dateSpan.textContent = dateInput.value || new Date().toLocaleDateString();
-                      // Replace input with span
-                      dateInput.parentNode?.replaceChild(dateSpan, dateInput);
-                    }
-                  }
-                });
-
-                // Remove clone after capture
-                document.body.removeChild(clone);
-
-                const imgData = canvas.toDataURL('image/png', 1.0);
-                const pdf = new jsPDF({
-                  orientation: 'portrait',
-                  unit: 'mm',
-                  format: 'a4',
-                  compress: true
-                });
-
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = pdf.internal.pageSize.getHeight();
-
-                // Add image to PDF with proper dimensions
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, '', 'FAST');
-                
-                // Save the PDF
-                console.log('Saving PDF...');
-                pdf.save(`invoice-${Date.now()}.pdf`);
-                console.log('PDF saved successfully');
-
-                // Close modal after both operations succeed
-                onClose();
-              } catch (error) {
-                console.error('Failed to process invoice:', error);
-                alert(error instanceof Error ? error.message : 'Failed to process invoice. Please try again.');
-              } finally {
-                setIsGeneratingPDF(false);
-              }
-            }}
+            onClick={handleDownloadPDF2}
             disabled={isGeneratingPDF}
             className="bg-[#DBA463] text-white px-4 py-2 rounded-lg hover:bg-[#c28a4f] transition-colors disabled:opacity-50"
           >

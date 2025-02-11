@@ -5,16 +5,25 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { motion } from 'framer-motion'
 import { useInView } from 'framer-motion'
-import { useRef, useState } from 'react'
+import { AwaitedReactNode, JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal, useRef, useState, useEffect } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useRouter } from 'next/navigation'
 import ContactForm from '../components/ContactForm'
+import { StaticImport } from "next/dist/shared/lib/get-img-props";
 
 interface ContactForm {
   name: string
   email: string
   phone_number: string
   message: string
+}
+
+interface Project {
+  id: number;
+  name: string;
+  cover_image: string;
+  subcategory: string;
+  featured: boolean;
 }
 
 export default function Home() {
@@ -37,9 +46,40 @@ export default function Home() {
   const [error, setError] = useState<string>('')
   const [success, setSuccess] = useState<boolean>(false)
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
+  const [featuredProjects, setFeaturedProjects] = useState<Project[]>([])
   
   const supabase = createClientComponentClient()
   const router = useRouter()
+
+  useEffect(() => {
+    const fetchFeaturedProjects = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('featured', true)
+          .limit(3);
+        
+        if (error) {
+          console.error('Supabase error:', error);
+          throw error;
+        }
+        
+        console.log('Raw Supabase data:', data);
+        
+        if (data) {
+          data.forEach(project => {
+            console.log('Project image URL:', project.cover_image);
+          });
+          setFeaturedProjects(data);
+        }
+      } catch (error) {
+        console.error('Error fetching featured projects:', error);
+      }
+    };
+
+    fetchFeaturedProjects();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -264,85 +304,43 @@ export default function Home() {
       </section>
 
       {/* Featured Projects Section */}
-      <section ref={projectsRef} className="relative py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial="initial"
-            whileInView="animate"
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <motion.h2 {...fadeIn} className="text-4xl font-light text-[#1A1F2E] mb-4">
-              FEATURED <span className="text-[#DBA463]">PROJECTS</span>
-            </motion.h2>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              { id: 1, name: "Modern Business Complex", location: "Downtown", image: "/mbc.jpg", bright: false },
-              { id: 2, name: "Floating Pavilion", location: "Waterfront", image: "/fp.jpg", bright: true },
-              { id: 3, name: "Urban Villa", location: "Residential District", image: "/v.jpg", bright: false }
-            ].map((project, index) => (
-              <motion.div
-                key={project.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.2 }}
-                viewport={{ once: true }}
-                className="group relative h-[400px] bg-gray-100 overflow-hidden rounded-lg"
-              >
-                <Image
-                  src={project.image}
-                  alt={project.name}
-                  fill
-                  className={`object-cover transition-transform duration-500 group-hover:scale-110 ${
-                    project.bright ? 'brightness-110 contrast-125' : ''
-                  }`}
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                  }}
-                />
-                
-                <div className={`absolute inset-0 bg-gradient-to-t ${
-                  project.bright 
-                    ? 'from-black/80 via-black/40 to-transparent'
-                    : 'from-black/70 to-transparent'
-                } opacity-0 group-hover:opacity-100 transition-opacity duration-300`}>
-                  <div className="absolute bottom-0 left-0 right-0 p-6">
-                    <h3 className="text-xl font-light text-white mb-2">{project.name}</h3>
-                    <p className="text-white/80">{project.location}</p>
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <h2 className="text-center mb-12">
+            <span className="text-3xl font-bold text-white">FEATURED </span>
+            <span className="text-3xl font-bold text-[#DBA463]">PROJECTS</span>
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {featuredProjects.map((project) => (
+              <div key={project.id} className="relative group">
+                <Link href={`/projects/${project.id}`}>
+                  <div className="relative aspect-[4/3] overflow-hidden">
+                    <Image
+                      src={project.cover_image}
+                      alt={project.name || ''}
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw"
+                      className="object-cover rounded-lg transition-transform duration-300 group-hover:scale-105"
+                      priority
+                    />
+                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
+                      <h3 className="text-white font-semibold">{project.name}</h3>
+                      <p className="text-gray-200 text-sm">{project.subcategory}</p>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
+                </Link>
+              </div>
             ))}
           </div>
 
-          {/* View All Projects Button */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mt-12"
-          >
-            <Link
+          <div className="text-center mt-8">
+            <Link 
               href="/projects"
-              className="inline-flex items-center px-8 py-3 border border-[#DBA463] text-[#DBA463] hover:bg-[#DBA463] hover:text-white transition-all duration-300 group"
+              className="inline-block px-6 py-2 border border-[#DBA463] text-[#DBA463] hover:bg-[#DBA463] hover:text-white transition-colors duration-300"
             >
-              VIEW ALL PROJECTS
-              <motion.svg 
-                className="ml-2 w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                animate={{ x: [0, 5, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </motion.svg>
+              VIEW ALL PROJECTS →
             </Link>
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -513,4 +511,5 @@ export default function Home() {
     </div>
   )
 }
+
 

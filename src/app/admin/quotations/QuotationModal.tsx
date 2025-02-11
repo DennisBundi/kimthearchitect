@@ -1,5 +1,3 @@
-'use client'
-
 import { useState, useRef } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import html2canvas from 'html2canvas'
@@ -20,7 +18,6 @@ interface TaskBreakdown {
 }
 
 interface Breakdown {
-  phase: string;
   amount: number;
   description: string;
 }
@@ -56,7 +53,7 @@ export function QuotationModal({ isOpen, onClose, projectId = undefined }: Quota
     name: '',
     professional: '',
     duration: '',
-    breakdowns: [{ phase: '', amount: 0, description: '' }]
+    breakdowns: [{ description: '', amount: 0 }]
   }])
   const [notes, setNotes] = useState<Note[]>([])
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
@@ -67,16 +64,15 @@ export function QuotationModal({ isOpen, onClose, projectId = undefined }: Quota
       name: '',
       professional: '',
       duration: '',
-      breakdowns: [{ phase: '', amount: 0, description: '' }]
+      breakdowns: [{ description: '', amount: 0 }]
     }])
   }
 
   const addBreakdown = (taskIndex: number) => {
     const newTasks = [...tasks]
     newTasks[taskIndex].breakdowns.push({
-      phase: '',
-      amount: 0,
       description: '',
+      amount: 0,
     })
     setTasks(newTasks)
   }
@@ -142,12 +138,63 @@ export function QuotationModal({ isOpen, onClose, projectId = undefined }: Quota
   const handleDownloadPDF = async () => {
     try {
       setIsGeneratingPDF(true);
-      const content = document.querySelector('[data-pdf-content]') as HTMLDivElement;
-      if (!content) return;
+
+      const modalContent = document.querySelector('[data-pdf-content]') as HTMLDivElement;
+      if (!modalContent) {
+        throw new Error('Could not find modal content');
+      }
 
       // Create a deep clone of the content
-      const clone = content.cloneNode(true) as HTMLDivElement;
-      
+      const clone = modalContent.cloneNode(true) as HTMLDivElement;
+
+      // First, remove all existing Ksh spans to prevent duplication
+      clone.querySelectorAll('.flex-nowrap').forEach(wrapper => {
+        const existingKsh = wrapper.querySelector('span');
+        if (existingKsh) {
+          existingKsh.remove();
+        }
+      });
+
+      // Convert all textareas and inputs to properly formatted div elements
+      clone.querySelectorAll('textarea, input').forEach((element) => {
+        const isTextArea = element instanceof HTMLTextAreaElement;
+        const isInput = element instanceof HTMLInputElement;
+        
+        if (!isTextArea && !isInput) return;
+
+        const div = document.createElement('div');
+        
+        // Preserve whitespace and line breaks
+        div.style.whiteSpace = 'pre-wrap';
+        div.style.wordBreak = 'break-word';
+        div.style.minHeight = '20px';
+        
+        // Copy styles from the original element
+        const computedStyle = window.getComputedStyle(element);
+        div.style.width = computedStyle.width;
+        div.style.padding = computedStyle.padding;
+        div.style.margin = computedStyle.margin;
+        
+        // Special handling for amount inputs in fee breakdown
+        if (isInput && element.type === 'number' && element.closest('td')) {
+          div.style.fontWeight = 'bold';
+          const amount = Number(element.value);
+          // Add Ksh prefix directly to the formatted amount
+          div.textContent = `Ksh ${amount.toLocaleString()}`;
+        } else {
+          div.textContent = isTextArea || isInput ? element.value : '';
+        }
+        
+        // Special handling for table cells
+        if (element.closest('td')) {
+          div.style.width = '100%';
+        }
+        
+        if (element.parentNode) {
+          element.parentNode.replaceChild(div, element);
+        }
+      });
+
       // Style the clone for PDF
       clone.style.width = '210mm';
       clone.style.padding = '20mm';
@@ -156,33 +203,60 @@ export function QuotationModal({ isOpen, onClose, projectId = undefined }: Quota
       clone.style.top = '0';
       clone.style.left = '0';
       clone.style.zIndex = '-9999';
-      
-      // Hide action buttons in clone
-      const actionButtons = clone.querySelectorAll('.action-button');
-      actionButtons.forEach(button => (button as HTMLElement).style.display = 'none');
+
+      // Ensure table cells can grow with content
+      clone.querySelectorAll('td').forEach((td) => {
+        td.style.height = 'auto';
+        td.style.minHeight = '30px';
+        td.style.verticalAlign = 'top';
+        td.style.whiteSpace = 'pre-wrap';
+        td.style.wordBreak = 'break-word';
+      });
+
+      // Update the signature image in the clone
+      const signatureImg = clone.querySelector('img[alt="Signature"]') as HTMLImageElement;
+      if (signatureImg) {
+        const newSignature = new Image();
+        newSignature.src = '/signature.jpeg';
+        newSignature.alt = 'Signature';
+        newSignature.className = signatureImg.className;
+        signatureImg.parentNode?.replaceChild(newSignature, signatureImg);
+
+        // Wait for the image to load
+        await new Promise((resolve) => {
+          newSignature.onload = resolve;
+        });
+      }
+
+      // Hide buttons and unnecessary elements in clone
+      const buttonsToHide = clone.querySelectorAll('button, .action-button, .close-button');
+      buttonsToHide.forEach(button => (button as HTMLElement).style.display = 'none');
 
       // Add clone to body
       document.body.appendChild(clone);
 
-      // Wait for clone to render
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait longer for complex content to render
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
-        logging: true,
+        logging: false,
         backgroundColor: '#ffffff',
         allowTaint: true,
-        foreignObjectRendering: true,
-        imageTimeout: 0,
-        removeContainer: false,
-        x: 0,
-        y: 0,
-        width: clone.offsetWidth,
-        height: clone.offsetHeight
+        imageTimeout: 5000,
+        windowWidth: clone.scrollWidth,
+        windowHeight: clone.scrollHeight,
+        onclone: (clonedDoc) => {
+          // Additional styling for the cloned document
+          const cells = clonedDoc.querySelectorAll('td');
+          cells.forEach((cell) => {
+            cell.style.height = 'auto';
+            cell.style.wordBreak = 'break-word';
+          });
+        }
       });
 
-      // Remove clone after capture
       document.body.removeChild(clone);
 
       const imgData = canvas.toDataURL('image/png', 1.0);
@@ -198,11 +272,17 @@ export function QuotationModal({ isOpen, onClose, projectId = undefined }: Quota
 
       // Add image to PDF with proper dimensions
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, '', 'FAST');
-      pdf.save(`quotation-${Date.now()}.pdf`);
 
+      // Save the PDF
+      console.log('Saving PDF...');
+      pdf.save(`quotation-${Date.now()}.pdf`);
+      console.log('PDF saved successfully');
+
+      // Close modal after both operations succeed
+      onClose();
     } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF');
+      console.error('Failed to process quotation:', error);
+      alert(error instanceof Error ? error.message : 'Failed to process quotation. Please try again.');
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -236,7 +316,6 @@ export function QuotationModal({ isOpen, onClose, projectId = undefined }: Quota
           professional: task.professional,
           duration: task.duration,
           breakdowns: task.breakdowns.map(breakdown => ({
-            phase: breakdown.phase || '',
             amount: Number(breakdown.amount) || 0,
             description: breakdown.description || ''
           }))
@@ -280,34 +359,46 @@ export function QuotationModal({ isOpen, onClose, projectId = undefined }: Quota
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div ref={modalRef} className="bg-white rounded-lg w-[210mm] max-h-[90vh] overflow-y-auto scrollbar-hide">
         <div data-pdf-content className="px-16 py-12">
-          <div className="text-purple-600 text-center mb-6">
-            <h1 className="font-bold text-2xl mb-2">
-              KIMTHEARCHITECT CONSULTANTS & CONSTRUCTION LOGISTICS.
-            </h1>
-            <p className="mb-1">(Architects, Interior Designers and Project Managers)</p>
-            <p className="mb-1">THE PREMIER NORTH PARK HUB, OFF EASTERN BYPASS</p>
-            <p className="mb-1">P. O. BOX 51584– 00100, NAIROBI.</p>
-            <p>Cell: 0719698588. Email: kimthearchitectlogistics@gmail.com</p>
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-4">
+              <img
+                src="/mainlogo.svg"
+                alt="Kimthearchitect Logo"
+                className="h-20 object-contain"
+              />
+            </div>
+            <h2 className="text-xl font-semibold text-[#1a237e] mb-4">
+              Kimthearchitect LTD
+            </h2>
+            <div className="text-sm text-gray-600 space-y-1">
+              <p>THE PREMIER NORTH PARK HUB, OFF EASTERN BYPASS</p>
+              <p>P. O. BOX 51584– 00100, NAIROBI</p>
+              <p>Cell: 0719 698 568</p>
+              <p>Email: Kimthearchitect0@gmail.com</p>
+            </div>
           </div>
 
-          <div className="mb-4 pb-6">
+          <div className="mb-4 pb-6 flex items-center">
             <span className="font-bold mr-2">Dear</span>
             <input
               type="text"
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
-              className="focus:outline-none pb-[10px]"
+              className="focus:outline-none border-b border-gray-300 flex-1"
               placeholder="Name"
             />
           </div>
 
-          <div className="mb-4 pb-6">
+          <div className="mb-4 pb-6 flex items-center">
             <span className="font-bold mr-2">RE:</span>
             <input
               type="text"
               value={projectTitle}
-              onChange={handleProjectTitleChange}
-              className="focus:outline-none"
+              onChange={(e) => {
+                // Convert to uppercase before setting
+                setProjectTitle(e.target.value.toUpperCase())
+              }}
+              className="focus:outline-none border-b border-black flex-1 uppercase"
               placeholder="Project"
             />
           </div>
@@ -326,47 +417,62 @@ export function QuotationModal({ isOpen, onClose, projectId = undefined }: Quota
                 {tasks.map((task, index) => (
                   <tr key={index}>
                     <td className="border border-black p-4">
-                      <input
-                        type="text"
+                      <textarea
                         value={task.name}
                         onChange={(e) => updateTask(index, 'name', e.target.value)}
-                        className="w-full focus:outline-none"
+                        className="w-full focus:outline-none resize-none overflow-hidden"
                         placeholder="e.g., Architectural Design"
+                        rows={1}
+                        onInput={(e) => {
+                          // Auto-adjust height
+                          const target = e.target as HTMLTextAreaElement;
+                          target.style.height = 'auto';
+                          target.style.height = `${target.scrollHeight}px`;
+                        }}
                       />
                     </td>
                     <td className="border border-black p-4">
-                      <input
-                        type="text"
+                      <textarea
                         value={task.professional}
                         onChange={(e) => updateTask(index, 'professional', e.target.value)}
-                        className="w-full focus:outline-none"
+                        className="w-full focus:outline-none resize-none overflow-hidden"
                         placeholder="e.g., Senior Architect"
+                        rows={1}
+                        onInput={(e) => {
+                          const target = e.target as HTMLTextAreaElement;
+                          target.style.height = 'auto';
+                          target.style.height = `${target.scrollHeight}px`;
+                        }}
                       />
                     </td>
                     <td className="border border-black p-4">
                       {task.breakdowns.map((breakdown, idx) => (
                         <div key={idx} className="mb-2">
-                          <input
-                            type="text"
-                            value={breakdown.phase}
-                            onChange={(e) => updateBreakdown(index, idx, 'phase', e.target.value)}
-                            className="w-full focus:outline-none mb-1"
-                            placeholder="Phase"
-                          />
-                          <input
-                            type="number"
-                            value={breakdown.amount}
-                            onChange={(e) => updateBreakdown(index, idx, 'amount', Number(e.target.value))}
-                            className="w-full focus:outline-none mb-1"
-                            placeholder="Amount"
-                          />
-                          <input
-                            type="text"
+                          <textarea
                             value={breakdown.description}
                             onChange={(e) => updateBreakdown(index, idx, 'description', e.target.value)}
-                            className="w-full focus:outline-none"
+                            className="w-full focus:outline-none resize-none overflow-hidden mb-1"
                             placeholder="Description"
+                            rows={1}
+                            onInput={(e) => {
+                              const target = e.target as HTMLTextAreaElement;
+                              target.style.height = 'auto';
+                              target.style.height = `${target.scrollHeight}px`;
+                            }}
                           />
+                          <div className="flex items-center w-full">
+                            <div className="flex items-center flex-nowrap min-w-[100px]">
+                              <span className="whitespace-nowrap">Ksh</span>
+                              <input
+                                type="number"
+                                value={breakdown.amount}
+                                onChange={(e) => updateBreakdown(index, idx, 'amount', Number(e.target.value))}
+                                className="w-full focus:outline-none ml-1 font-bold"
+                                placeholder="Amount"
+                                style={{ minWidth: '80px' }}
+                              />
+                            </div>
+                          </div>
                         </div>
                       ))}
                       <button
@@ -377,12 +483,17 @@ export function QuotationModal({ isOpen, onClose, projectId = undefined }: Quota
                       </button>
                     </td>
                     <td className="border border-black p-4">
-                      <input
-                        type="text"
+                      <textarea
                         value={task.duration}
                         onChange={(e) => updateTask(index, 'duration', e.target.value)}
-                        className="w-full focus:outline-none"
+                        className="w-full focus:outline-none resize-none overflow-hidden"
                         placeholder="e.g., 2 weeks"
+                        rows={1}
+                        onInput={(e) => {
+                          const target = e.target as HTMLTextAreaElement;
+                          target.style.height = 'auto';
+                          target.style.height = `${target.scrollHeight}px`;
+                        }}
                       />
                     </td>
                   </tr>
@@ -401,7 +512,7 @@ export function QuotationModal({ isOpen, onClose, projectId = undefined }: Quota
           <div className="mb-4 pb-6">
             <div className="flex justify-between items-center">
               <span className="font-bold">TOTAL AMOUNT</span>
-              <span>ksh {calculateTotalAmount().toLocaleString()}</span>
+              <span className="font-bold">Ksh {calculateTotalAmount().toLocaleString()}</span>
             </div>
           </div>
 
@@ -426,10 +537,17 @@ export function QuotationModal({ isOpen, onClose, projectId = undefined }: Quota
             </button>
           </div>
 
-          <div className="mt-2">
+          <div className="mt-8">
             <p className="mb-4">Yours Sincerely,</p>
-            <p className="font-bold mt-2">Arch.N.K. KIMATHI</p>
-            <p>Director Kimthearchitect consultants & construction logistics.</p>
+            <div className="flex flex-col items-end">
+              <img 
+                src="/signature.jpeg" 
+                alt="Signature" 
+                className="h-16 object-contain mb-2"
+              />
+              <p className="font-bold">Arch.N.K. KIMATHI</p>
+              <p>Director Kimthearchitect consultants & construction logistics.</p>
+            </div>
           </div>
         </div>
 
@@ -437,9 +555,8 @@ export function QuotationModal({ isOpen, onClose, projectId = undefined }: Quota
           <button
             onClick={async () => {
               try {
-                await handleSaveQuotation(); // Save first
-                await handleDownloadPDF(); // Generate PDF
-                onClose(); // Close the modal after successful PDF generation
+                await handleSaveQuotation();
+                await handleDownloadPDF();
               } catch (error) {
                 console.error('Failed to process quotation:', error);
               }

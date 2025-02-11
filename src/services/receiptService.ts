@@ -1,15 +1,32 @@
 import { createClient } from '@supabase/supabase-js'
-import { Receipt } from '../types/receipt'
+import { supabase } from '@/lib/supabase'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-const supabase = createClient(supabaseUrl, supabaseKey)
+const supabaseClient = createClient(supabaseUrl, supabaseKey)
+
+export interface ReceiptItem {
+  quantity: number;
+  description: string;
+  amount: number;
+}
+
+export interface Receipt {
+  id?: string;
+  receipt_number: string;
+  client_name: string;
+  date: string;
+  items: ReceiptItem[];
+  amount: number;
+  received_by: string;
+  status: 'Pending' | 'Completed';
+}
 
 export const receiptService = {
   async getReceipts(): Promise<Receipt[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from('receipts')
         .select('*')
         .order('created_at', { ascending: false })
@@ -24,7 +41,7 @@ export const receiptService = {
 
   async deleteReceipt(id: string): Promise<void> {
     try {
-      const { error } = await supabase
+      const { error } = await supabaseClient
         .from('receipts')
         .delete()
         .eq('id', id)
@@ -36,19 +53,21 @@ export const receiptService = {
     }
   },
 
-  async createReceipt(receipt: Omit<Receipt, 'id' | 'created_at'>) {
+  async createReceipt(data: Omit<Receipt, 'id'>) {
     try {
-      const { data, error } = await supabase
+      const { data: receipt, error } = await supabase
         .from('receipts')
-        .insert([receipt])
+        .insert([data])
         .select()
-        .single()
+        .single();
 
-      if (error) throw error
-      return data
+      if (error) throw error;
+      return receipt;
     } catch (error) {
-      console.error('Error creating receipt:', error)
-      throw error
+      console.error('Error creating receipt:', error);
+      throw error;
     }
   }
-} 
+}
+
+export default receiptService 
