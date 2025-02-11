@@ -4,17 +4,95 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { motion, useScroll } from 'framer-motion'
 import Image from 'next/image'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useRouter } from 'next/navigation'
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const { scrollY } = useScroll()
   const [isScrolled, setIsScrolled] = useState(false)
+  const [user, setUser] = useState<any>(null)
+  const router = useRouter()
+  const supabase = createClientComponentClient()
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user || null)
+    }
+    getUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [supabase.auth])
 
   useEffect(() => {
     return scrollY.onChange((latest) => {
       setIsScrolled(latest > 50)
     })
   }, [scrollY])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
+  }
+
+  // Function to get user initials
+  const getUserInitials = (email: string) => {
+    return email
+      .split('@')[0]
+      .split('.')
+      .map(part => part[0].toUpperCase())
+      .join('')
+  }
+
+  const renderAuthSection = () => {
+    if (!user) {
+      return (
+        <div className="flex items-center space-x-4">
+          <Link href="/login" className="text-white hover:text-[#DBA463] transition-colors">
+            Login
+          </Link>
+          <Link href="/signup" className="bg-[#DBA463] text-white px-4 py-2 rounded-lg hover:bg-[#DBA463]/90 transition-colors">
+            Sign Up
+          </Link>
+        </div>
+      )
+    }
+
+    if (user.email === 'kimthearchitect0@gmail.com') {
+      return (
+        <div className="flex items-center space-x-4">
+          <Link href="/admin/dashboard" className="text-white hover:text-[#DBA463] transition-colors">
+            Dashboard
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="bg-[#DBA463] text-white px-4 py-2 rounded-lg hover:bg-[#DBA463]/90 transition-colors"
+          >
+            Logout
+          </button>
+        </div>
+      )
+    }
+
+    return (
+      <div className="flex items-center space-x-4">
+        <div className="bg-[#DBA463] w-8 h-8 rounded-full flex items-center justify-center">
+          <span className="text-white font-semibold">{getUserInitials(user.email)}</span>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="text-white hover:text-[#DBA463] transition-colors"
+        >
+          Logout
+        </button>
+      </div>
+    )
+  }
 
   return (
     <motion.nav
@@ -40,7 +118,7 @@ export default function Navbar() {
             </div>
           </Link>
 
-          {/* Navigation Links and Auth Buttons */}
+          {/* Navigation Links and Auth Section */}
           <div className="hidden md:flex items-center">
             {/* Nav Links */}
             <div className="flex space-x-8 mr-8">
@@ -58,26 +136,12 @@ export default function Navbar() {
               </Link>
             </div>
 
-            {/* Auth Buttons */}
-            <div className="flex items-center space-x-4">
-              <Link 
-                href="/login" 
-                className="text-white hover:text-[#DBA463] transition-colors"
-              >
-                Login
-              </Link>
-              <Link 
-                href="/signup" 
-                className="bg-[#DBA463] text-white px-4 py-2 rounded-lg hover:bg-[#DBA463]/90 transition-colors"
-              >
-                Sign Up
-              </Link>
-            </div>
+            {/* Auth Section */}
+            {renderAuthSection()}
           </div>
 
           {/* Mobile menu button */}
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={() => setIsOpen(!isOpen)}
             className="md:hidden text-white p-2"
           >
@@ -88,30 +152,30 @@ export default function Navbar() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               )}
             </svg>
-          </motion.button>
+          </button>
         </div>
 
         {/* Mobile Menu */}
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="md:hidden absolute top-full left-0 right-0 bg-[#1A1F2E]/95 backdrop-blur-sm"
-          >
-            <div className="px-4 py-6 space-y-4">
-              {['HOME', 'PROJECTS', 'ABOUT', 'CONTACT'].map((item) => (
-                <Link
-                  key={item}
-                  href={item === 'HOME' ? '/' : `/${item.toLowerCase()}`}
-                  className="block text-white/80 hover:text-[#DBA463] transition-colors text-sm tracking-wider"
-                  onClick={() => setIsOpen(false)}
-                >
-                  {item}
-                </Link>
-              ))}
+          <div className="md:hidden">
+            <div className="px-2 pt-2 pb-3 space-y-1">
+              <Link href="/" className="block text-white hover:text-[#DBA463] transition-colors">
+                HOME
+              </Link>
+              <Link href="/projects" className="block text-white hover:text-[#DBA463] transition-colors">
+                PROJECTS
+              </Link>
+              <Link href="/about" className="block text-white hover:text-[#DBA463] transition-colors">
+                ABOUT
+              </Link>
+              <Link href="/contact" className="block text-white hover:text-[#DBA463] transition-colors">
+                CONTACT
+              </Link>
+              <div className="pt-4">
+                {renderAuthSection()}
+              </div>
             </div>
-          </motion.div>
+          </div>
         )}
       </div>
     </motion.nav>

@@ -27,6 +27,8 @@ export default function EditProject({ params }: { params: { id: string } }) {
   const [isSaving, setIsSaving] = useState(false)
   const [uploadingImages, setUploadingImages] = useState(false)
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [newImages, setNewImages] = useState<string[]>([])
   const router = useRouter()
   const supabase = createClientComponentClient()
 
@@ -58,6 +60,12 @@ export default function EditProject({ params }: { params: { id: string } }) {
     fetchProject()
   }, [params.id])
 
+  useEffect(() => {
+    console.log('Project Data:', project)
+    console.log('Cover Image:', project?.cover_image)
+    console.log('Additional Images:', project?.images)
+  }, [project])
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!project) return
@@ -65,55 +73,75 @@ export default function EditProject({ params }: { params: { id: string } }) {
     setIsSaving(true)
 
     try {
-      // Get all current images, including the cover image
-      const allImages: string[] = (() => {
-        const images: string[] = []
-        
-        // Add additional images
-        if (project.images) {
-          if (typeof project.images === 'string') {
-            // If it's a single string, add it directly
-            images.push(project.images)
-          } else if (Array.isArray(project.images)) {
-            // For each image, ensure we're storing just the filename or full path correctly
-            project.images.forEach(img => {
-              // If it's a full URL, extract just the filename
-              if (img.includes('project-images/')) {
-                const filename = img.split('project-images/').pop()
-                if (filename) images.push(filename)
-              } else {
-                // If it's already a filename, use it as is
-                images.push(img)
-              }
-            })
-          }
+      // Upload new images first
+      const newImages: string[] = []
+      
+      for (const file of selectedFiles) {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Math.random()}.${fileExt}`
+        const filePath = `${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('project-images')
+          .upload(filePath, file)
+
+        if (uploadError) throw uploadError
+
+        const fullPath = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/project-images/${filePath}`
+        newImages.push(fullPath)
+
+        // If this is the first uploaded image and there's no cover image, use it as cover
+        if (newImages.length === 1 && !project.cover_image) {
+          project.cover_image = fullPath
         }
-
-        return images
-      })()
-
-      // Prepare the update data
-      const updateData = {
-        name: project.name,
-        description: project.description,
-        year: project.year,
-        client: project.client,
-        location: project.location,
-        building_type: project.category,
-        sub_category: project.subcategory,
-        cover_image: project.cover_image,
-        images: allImages // Store cleaned up image paths
       }
 
-      const { error } = await supabase
-        .from('projects')
-        .update(updateData)
-        .eq('id', params.id)
+      // Ensure current images is properly formatted
+      const currentImages = Array.isArray(project.images) 
+        ? project.images 
+        : project.images 
+          ? JSON.parse(project.images as string)
+          : []
 
-      if (error) throw error
+      // Combine existing and new images
+      const allImages = [...currentImages, ...newImages]
+
+      // Update project with all data including images and cover image
+      const { data: updatedProject, error: updateError } = await supabase
+        .from('projects')
+        .update({
+          name: project.name,
+          description: project.description,
+          year: project.year,
+          client: project.client,
+          location: project.location,
+          category: project.category,
+          subcategory: project.subcategory,
+          cover_image: project.cover_image,
+          images: allImages
+        })
+        .eq('id', params.id)
+        .select()
+        .single()
+
+      if (updateError) throw updateError
+
+      // Update local state with new data
+      setProject({
+        ...project,
+        cover_image: updatedProject.cover_image,
+        images: updatedProject.images
+      })
+
+      // Clear preview states
+      setPreviewUrls(prev => {
+        prev.forEach(url => URL.revokeObjectURL(url))
+        return []
+      })
+      setSelectedFiles([])
 
       toast.success('Project updated successfully')
-      router.push('/admin/projects/list')
+
     } catch (error) {
       console.error('Error updating project:', error)
       toast.error('Failed to update project')
@@ -126,14 +154,12 @@ export default function EditProject({ params }: { params: { id: string } }) {
     const files = e.target.files
     if (!files || files.length === 0) return
 
-    // Clear previous previews
-    setPreviewUrls([])
+    // Store the files
+    setSelectedFiles(prev => [...prev, ...Array.from(files)])
 
-    // Create preview URLs for selected images
-    Array.from(files).forEach(file => {
-      const previewUrl = URL.createObjectURL(file)
-      setPreviewUrls(prev => [...prev, previewUrl])
-    })
+    // Create and store preview URLs
+    const newPreviewUrls = Array.from(files).map(file => URL.createObjectURL(file))
+    setPreviewUrls(prev => [...prev, ...newPreviewUrls])
   }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,7 +167,7 @@ export default function EditProject({ params }: { params: { id: string } }) {
     
     setUploadingImages(true)
     const files = Array.from(e.target.files)
-    const newImages: string[] = []
+    const uploadedImages: string[] = []
 
     try {
       // Upload each new image
@@ -158,43 +184,17 @@ export default function EditProject({ params }: { params: { id: string } }) {
 
         // Create full URL for the uploaded image
         const fullPath = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/project-images/${filePath}`
-        newImages.push(fullPath)
+        uploadedImages.push(fullPath)
       }
 
-      // Get current images array with proper typing
-      const currentImages: string[] = (() => {
-        if (!project.images) return []
-        if (typeof project.images === 'string') return [project.images]
-        if (Array.isArray(project.images)) return project.images
-        return []
-      })()
-
-      // Combine current images with new ones
-      const updatedImages: string[] = [...currentImages, ...newImages]
-
-      // Update the project with all images
-      const { error: updateError } = await supabase
-        .from('projects')
-        .update({
-          images: updatedImages
-        })
-        .eq('id', project.id)
-
-      if (updateError) throw updateError
-
-      // Update local state with all images
-      setProject(prev => ({
-        ...prev!,
-        images: updatedImages
-      }))
-
-      toast.success('Images uploaded successfully')
+      // Add to preview state instead of project state
+      setNewImages(prev => [...prev, ...uploadedImages])
+      toast.success('Images added to preview')
     } catch (error) {
       console.error('Error uploading images:', error)
       toast.error('Failed to upload images')
     } finally {
       setUploadingImages(false)
-      // Clear the input
       if (e.target) {
         e.target.value = ''
       }
@@ -205,31 +205,53 @@ export default function EditProject({ params }: { params: { id: string } }) {
     if (!project) return
 
     try {
-      // Delete from storage
-      const { error: deleteError } = await supabase.storage
-        .from('project-images')
-        .remove([imagePath])
+      // Extract filename from path
+      const filename = imagePath.includes('project-images/') 
+        ? imagePath.split('project-images/').pop() 
+        : imagePath
 
-      if (deleteError) throw deleteError
+      // Delete from storage if it's not the cover image
+      if (imagePath !== project.cover_image) {
+        const { error: deleteError } = await supabase.storage
+          .from('project-images')
+          .remove([filename!])
 
-      // Update project
-      const updatedImages = project.images?.filter(img => img !== imagePath) || []
+        if (deleteError) {
+          console.error('Error deleting from storage:', deleteError)
+          throw deleteError
+        }
+      }
+
+      // Ensure project.images is an array
+      const currentImages = Array.isArray(project.images) 
+        ? project.images 
+        : project.images 
+          ? [project.images] 
+          : []
+
+      // Update project images array
+      const updatedImages = currentImages.filter(img => {
+        const imgFilename = img.includes('project-images/') 
+          ? img.split('project-images/').pop() 
+          : img
+        return imgFilename !== filename
+      })
+
+      // Update project record in database
       const { error: updateError } = await supabase
         .from('projects')
         .update({
           images: updatedImages
         })
-        .eq('id', params.id)
+        .eq('id', project.id)
 
       if (updateError) throw updateError
 
-      // Update local state
-      setProject(prev => prev ? {
-        ...prev,
-        images: updatedImages
-      } : null)
-
       toast.success('Image deleted successfully')
+      
+      // Refresh the page
+      window.location.reload()
+
     } catch (error) {
       console.error('Error deleting image:', error)
       toast.error('Failed to delete image')
@@ -297,6 +319,20 @@ export default function EditProject({ params }: { params: { id: string } }) {
       return path
     }
     return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/project-images/${path}`
+  }
+
+  // Add this function to remove images from preview
+  const removeFromPreview = (imageUrl: string) => {
+    setNewImages(prev => prev.filter(img => img !== imageUrl))
+  }
+
+  // Add function to remove preview
+  const removePreview = (index: number) => {
+    // Revoke the object URL to prevent memory leaks
+    URL.revokeObjectURL(previewUrls[index])
+    
+    setPreviewUrls(prev => prev.filter((_, i) => i !== index))
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
   }
 
   if (isLoading) {
@@ -394,81 +430,143 @@ export default function EditProject({ params }: { params: { id: string } }) {
 
           {/* Project Images Section */}
           <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold text-white mb-4">Project Images</h2>
-
-              {/* All Project Images */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {getAllProjectImages().map((image, index) => (
-                  <div 
-                    key={index} 
-                    className={`relative group ${index === 0 ? 'col-span-2 md:col-span-3' : ''}`}
-                  >
-                    <div className={`relative ${index === 0 ? 'aspect-video' : 'aspect-square'}`}>
-                      <img
-                        src={getImageUrl(image)}
-                        alt={`Project image ${index + 1}`}
-                        className="w-full h-full object-cover rounded-lg"
-                        onError={(e) => {
-                          console.error('Failed to load image:', image)
-                          const target = e.target as HTMLImageElement
-                          target.src = '/placeholder.jpg'
-                        }}
-                      />
-                      {index === 0 && (
-                        <div className="absolute top-2 left-2 px-2 py-1 bg-gray-800 bg-opacity-75 text-white text-sm rounded">
-                          Cover Image
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Upload New Images Section */}
-              <div className="mt-6">
-                <h3 className="text-white mb-2">Upload New Images</h3>
-                <div className="relative">
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    id="image-upload"
-                    disabled={uploadingImages}
+            <h2 className="text-xl font-semibold text-white mb-4">Project Images</h2>
+            
+            {/* Cover Image */}
+            {project?.cover_image && (
+              <div className="mb-6">
+                <h3 className="text-white mb-2">Cover Image</h3>
+                <div className="relative aspect-video">
+                  <img
+                    src={project.cover_image}
+                    alt="Cover image"
+                    className="w-full h-full object-cover rounded-lg"
                   />
-                  <label
-                    htmlFor="image-upload"
-                    className={`flex items-center justify-center px-4 py-2 bg-gray-700 text-white rounded-lg cursor-pointer hover:bg-gray-600 transition-colors ${
-                      uploadingImages ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                  >
-                    <FiUpload className="mr-2" />
-                    {uploadingImages ? 'Uploading...' : 'Upload New Images'}
-                  </label>
                 </div>
+              </div>
+            )}
 
-                {/* Preview Section */}
-                {previewUrls.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="text-white mb-2">Preview</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {previewUrls.map((url, index) => (
-                        <div key={index} className="relative aspect-square">
-                          <img
-                            src={url}
-                            alt={`Preview ${index + 1}`}
-                            className="w-full h-full object-cover rounded-lg"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+            {/* Additional Images */}
+            <div>
+              <h3 className="text-white mb-2">Additional Images</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {project?.images && (
+                  (typeof project.images === 'string' 
+                    ? JSON.parse(project.images)
+                    : project.images
+                  ).filter(Boolean).map((imageUrl: string, index: number) => {
+                    // Clean the URL by removing any quotes and backslashes
+                    const cleanUrl = typeof imageUrl === 'string' 
+                      ? imageUrl.replace(/['"\\]/g, '')
+                      : imageUrl;
+                    
+                    return (
+                      <div key={index} className="relative group aspect-square">
+                        <img
+                          src={cleanUrl}
+                          alt={`Project image ${index + 1}`}
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                        <button
+                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                            e.preventDefault();
+                            handleDeleteImage(cleanUrl);
+                          }}
+                          className="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <FiX size={16} />
+                        </button>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
           </div>
+
+          {/* Upload New Images Section */}
+          <div className="mt-6">
+            <h3 className="text-white mb-2">Upload New Images</h3>
+            <div className="relative">
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+                id="image-upload"
+              />
+              <label
+                htmlFor="image-upload"
+                className="flex items-center justify-center px-4 py-2 bg-gray-700 text-white rounded-lg cursor-pointer hover:bg-gray-600 transition-colors"
+              >
+                <FiUpload className="mr-2" />
+                Select Images
+              </label>
+            </div>
+
+            {/* Preview Section */}
+            {previewUrls.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-white mb-2">Selected Images Preview</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {previewUrls.map((url, index) => (
+                    <div key={index} className="relative group aspect-square">
+                      <img
+                        src={url}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-full object-cover rounded-lg"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          target.onerror = null // Prevent infinite loop
+                          target.src = '/images/placeholder.jpg' // Use a default image path that exists in your project
+                        }}
+                      />
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          removePreview(index)
+                        }}
+                        className="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <FiX size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-gray-400 mt-2 text-sm">
+                  Images will be uploaded when you click "Save Changes"
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* New Images Preview Section */}
+          {newImages.length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-xl font-semibold text-white mb-4">New Images Preview</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {newImages.map((image, index) => (
+                  <div key={index} className="relative group aspect-square">
+                    <img
+                      src={image}
+                      alt={`New image ${index + 1}`}
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                    <button
+                      onClick={() => removeFromPreview(image)}
+                      className="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <FiX size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-gray-400 mt-2 text-sm">
+                These images will be added to the project when you click "Save Changes"
+              </p>
+            </div>
+          )}
 
           {/* Form Buttons */}
           <div className="flex gap-4 mt-6">

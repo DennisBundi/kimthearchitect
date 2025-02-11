@@ -152,8 +152,52 @@ export default function AdminDashboard() {
     )
   }
 
-  function fetchGraphData(value: string, projectType: string) {
-    throw new Error('Function not implemented.')
+  async function fetchGraphData(dateRange: string, projectType: string) {
+    try {
+      setLoading(true);
+      
+      // Calculate the start date based on the selected range
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - parseInt(dateRange));
+      
+      // Base query
+      let query = supabase
+        .from('projects')
+        .select('*')
+        .gte('created_at', startDate.toISOString());
+      
+      // Add filter based on project type
+      switch (projectType) {
+        case 'featured':
+          query = query.eq('featured', true);
+          break;
+        case 'active':
+          // If you don't have status, maybe use another condition or remove this case
+          break;
+        case 'completed':
+          // If you don't have status, maybe use another condition or remove this case
+          break;
+        // 'all' doesn't need additional filtering
+      }
+      
+      const { data: projects, error } = await query;
+      
+      if (error) throw error;
+      
+      // Process projects data for timeline
+      const projectsData = processMonthlyData(projects || []);
+      
+      // Update stats with new data
+      setStats(prevStats => ({
+        ...prevStats,
+        projectsData,
+      }));
+      
+    } catch (error) {
+      console.error('Error fetching graph data:', error);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -258,8 +302,6 @@ export default function AdminDashboard() {
           >
             <option value="all" className="bg-[#DBA463] text-white hover:bg-[#DBA463]/90">All Projects</option>
             <option value="featured" className="bg-[#DBA463] text-white hover:bg-[#DBA463]/90">Featured Projects</option>
-            <option value="active" className="bg-[#DBA463] text-white hover:bg-[#DBA463]/90">Active Projects</option>
-            <option value="completed" className="bg-[#DBA463] text-white hover:bg-[#DBA463]/90">Completed Projects</option>
           </select>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -7,7 +7,13 @@ import { TrashIcon, PencilIcon } from '@heroicons/react/24/outline'
 import { invoiceService } from '../../../services/invoiceService'
 import { receiptService } from '../../../services/receiptService'
 import { Invoice } from '../../../types/invoice'
-import { Receipt } from '../../../types/receipt'
+import type { Receipt } from '@/services/receiptService'
+
+// Define the state type for receipts
+interface ReceiptState {
+  receipts: Receipt[];
+  loading: boolean;
+}
 
 export default function InvoicesPage() {
   const [activeTab, setActiveTab] = useState('invoices');

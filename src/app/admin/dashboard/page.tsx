@@ -1,23 +1,54 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 export default function AdminDashboard() {
-  const { data: session } = useSession()
+  const router = useRouter()
+  const supabase = createClientComponentClient()
+  const [loading, setLoading] = useState(true)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    const checkUser = () => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) {
+          router.push('/login')
+          return
+        }
+
+        if (session.user.email !== 'kimthearchitect0@gmail.com') {
+          router.push('/')
+          return
+        }
+
+        setUserEmail(session.user.email)
+        setLoading(false)
+
+        // Set the initial admin dashboard state
+        const dashboardLink = document.querySelector('a[href="/admin/dashboard"]')
+        if (dashboardLink instanceof HTMLElement) {
+          dashboardLink.click()
+        }
+      }).catch((error) => {
+        console.error('Error checking auth:', error)
+        router.push('/login')
+      })
+    }
+
+    checkUser()
+  }, [router, supabase.auth])
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <div className="bg-white p-6 rounded-lg shadow">
+    <div className="p-8">
+      <div className="bg-white p-6 rounded-lg shadow mb-6">
         <h3 className="text-lg font-semibold mb-2">Welcome</h3>
-        <p>Logged in as: {session?.user?.email}</p>
-      </div>
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-lg font-semibold mb-2">Projects</h3>
-        <p className="text-3xl font-bold">0</p>
-      </div>
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-lg font-semibold mb-2">Invoices</h3>
-        <p className="text-3xl font-bold">0</p>
+        <p>Logged in as: {userEmail}</p>
       </div>
     </div>
   )
