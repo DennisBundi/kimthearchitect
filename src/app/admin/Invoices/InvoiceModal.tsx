@@ -1,11 +1,11 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useRef } from 'react'
-import { jsPDF } from 'jspdf'
-import html2canvas from 'html2canvas'
-import { invoiceService } from '@/services/invoiceService'
-import { InvoiceItem, Invoice, InvoiceStatus } from '@/types/invoice'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useState, useEffect, useRef } from "react";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
+import { invoiceService } from "@/services/invoiceService";
+import { InvoiceItem, Invoice, InvoiceStatus } from "@/types/invoice";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -13,21 +13,25 @@ interface InvoiceModalProps {
   currentInvoiceNumber?: number;
 }
 
-export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: InvoiceModalProps) => {
+export const InvoiceModal = ({
+  isOpen,
+  onClose,
+  currentInvoiceNumber = 0,
+}: InvoiceModalProps) => {
   const [invoiceNumber, setInvoiceNumber] = useState(
-    (currentInvoiceNumber + 1).toString().padStart(3, '0')
+    (currentInvoiceNumber + 1).toString().padStart(3, "0")
   );
 
   const [items, setItems] = useState<InvoiceItem[]>([
-    { quantity: '', description: '', amount: '', cents: '' },
-    { quantity: '', description: '', amount: '', cents: '' },
+    { quantity: "", description: "", amount: "", cents: "" },
+    { quantity: "", description: "", amount: "", cents: "" },
   ]);
 
-  const [total, setTotal] = useState({ amount: '0', cents: '00' });
-  const [receivedBy, setReceivedBy] = useState('');
-  const [name, setName] = useState('');
-  const [signatureDate, setSignatureDate] = useState('');
-  const [msValue, setMsValue] = useState('');
+  const [total, setTotal] = useState({ amount: "0", cents: "00" });
+  const [receivedBy, setReceivedBy] = useState("");
+  const [name, setName] = useState("");
+  const [signatureDate, setSignatureDate] = useState("");
+  const [msValue, setMsValue] = useState("");
   const [isPrinting, setIsPrinting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -40,7 +44,7 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
       let totalAmount = 0;
       let totalCents = 0;
 
-      items.forEach(item => {
+      items.forEach((item) => {
         // Convert amount and cents to numbers, default to 0 if empty or invalid
         const amount = parseFloat(item.amount) || 0;
         const cents = parseInt(item.cents) || 0;
@@ -57,7 +61,7 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
 
       setTotal({
         amount: totalAmount.toString(),
-        cents: totalCents.toString().padStart(2, '0')
+        cents: totalCents.toString().padStart(2, "0"),
       });
     };
 
@@ -66,14 +70,21 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
 
   // Update invoice number when currentInvoiceNumber changes
   useEffect(() => {
-    setInvoiceNumber((currentInvoiceNumber + 1).toString().padStart(3, '0'));
+    setInvoiceNumber((currentInvoiceNumber + 1).toString().padStart(3, "0"));
   }, [currentInvoiceNumber]);
 
   const addNewRow = () => {
-    setItems([...items, { quantity: '', description: '', amount: '', cents: '' }]);
+    setItems([
+      ...items,
+      { quantity: "", description: "", amount: "", cents: "" },
+    ]);
   };
 
-  const updateItem = (index: number, field: keyof InvoiceItem, value: string) => {
+  const updateItem = (
+    index: number,
+    field: keyof InvoiceItem,
+    value: string
+  ) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     setItems(newItems);
@@ -83,7 +94,7 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
     return items.reduce((total, item) => {
       const amount = parseFloat(item.amount) || 0;
       const quantity = parseFloat(item.quantity) || 0;
-      return total + (amount * quantity);
+      return total + amount * quantity;
     }, 0);
   };
 
@@ -92,53 +103,56 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
       const supabase = createClientComponentClient();
 
       // Get current session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('No authenticated session found');
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("No authenticated session found");
 
       // Format items and ensure amounts are numbers
-      const formattedItems = items.map(item => ({
-        quantity: item.quantity || '0',
-        description: item.description || '',
-        amount: parseFloat(item.amount.replace(/,/g, '')) || 0, // Remove commas and convert to number
-        cents: item.cents || '00'
+      const formattedItems = items.map((item) => ({
+        quantity: item.quantity || "0",
+        description: item.description || "",
+        amount: parseFloat(item.amount.replace(/,/g, "")) || 0, // Remove commas and convert to number
+        cents: item.cents || "00",
       }));
 
       // Calculate total amount - ensure it's a number
       const totalAmount = formattedItems.reduce((sum, item) => {
-        const itemAmount = parseFloat(item.amount.toString().replace(/,/g, '')) || 0;
+        const itemAmount =
+          parseFloat(item.amount.toString().replace(/,/g, "")) || 0;
         const itemQuantity = parseFloat(item.quantity) || 0;
-        return sum + (itemAmount * itemQuantity);
+        return sum + itemAmount * itemQuantity;
       }, 0);
 
       const invoiceData = {
         invoice_number: `INV-${invoiceNumber}`,
         date: signatureDate || new Date().toISOString(),
-        client_name: name || '',
+        client_name: name || "",
         items: formattedItems,
         amount: totalAmount, // Ensure this is a number
         total_amount: totalAmount, // Ensure this is a number
-        status: 'pending',
+        status: "pending",
         user_id: session.user.id,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       };
 
-      console.log('Saving invoice with data:', invoiceData); // For debugging
+      console.log("Saving invoice with data:", invoiceData); // For debugging
 
       const { data, error } = await supabase
-        .from('invoices')
+        .from("invoices")
         .insert([invoiceData])
         .select()
         .single();
 
       if (error) {
-        console.error('Supabase error:', error);
+        console.error("Supabase error:", error);
         throw error;
       }
 
-      console.log('Invoice saved successfully:', data);
+      console.log("Invoice saved successfully:", data);
       return data;
     } catch (error) {
-      console.error('Error saving invoice:', error);
+      console.error("Error saving invoice:", error);
       throw error;
     }
   };
@@ -148,47 +162,50 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
       setIsGeneratingPDF(true);
 
       // First try to save to database
-      console.log('Starting invoice save...');
+      console.log("Starting invoice save...");
       const savedInvoice = await handleSaveInvoice();
-      console.log('Invoice saved successfully:', savedInvoice);
+      console.log("Invoice saved successfully:", savedInvoice);
 
       // Then generate and download PDF
-      console.log('Starting PDF generation...');
+      console.log("Starting PDF generation...");
 
       // Make sure we're selecting the correct content
-      const modalContent = document.querySelector('.modal-content') as HTMLDivElement;
+      const modalContent = document.querySelector(
+        ".modal-content"
+      ) as HTMLDivElement;
       if (!modalContent) {
-        throw new Error('Could not find modal content');
+        throw new Error("Could not find modal content");
       }
 
       // Create a deep clone of the content
       const clone = modalContent.cloneNode(true) as HTMLDivElement;
 
       // Convert all inputs to spans with their values
-      clone.querySelectorAll('input').forEach((input: HTMLInputElement) => {
-        const span = document.createElement('span');
+      clone.querySelectorAll("input").forEach((input: HTMLInputElement) => {
+        const span = document.createElement("span");
         span.textContent = input.value;
-        span.style.width = '100%';
-        span.style.display = 'inline-block';
+        span.style.width = "100%";
+        span.style.display = "inline-block";
         input.parentNode?.replaceChild(span, input);
       });
 
       // Style the clone for PDF
-      clone.style.width = '210mm';
-      clone.style.padding = '20mm';
-      clone.style.backgroundColor = 'white';
-      clone.style.position = 'fixed';
-      clone.style.top = '0';
-      clone.style.left = '0';
-      clone.style.zIndex = '-9999';
-
+      clone.style.width = "210mm";
+      clone.style.padding = "20mm";
+      clone.style.backgroundColor = "white";
+      clone.style.position = "fixed";
+      clone.style.top = "0";
+      clone.style.left = "0";
+      clone.style.zIndex = "-9999";
 
       // Update the signature image in the clone
-      const signatureImg = clone.querySelector('img[alt="Signature"]') as HTMLImageElement;
+      const signatureImg = clone.querySelector(
+        'img[alt="Signature"]'
+      ) as HTMLImageElement;
       if (signatureImg) {
         const newSignature = new Image();
-        newSignature.src = '/signature.jpeg';
-        newSignature.alt = 'Signature';
+        newSignature.src = "/signature.jpeg";
+        newSignature.alt = "Signature";
         newSignature.className = signatureImg.className;
         // Replace the old image with the new one
         signatureImg.parentNode?.replaceChild(newSignature, signatureImg);
@@ -200,54 +217,62 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
       }
 
       // Hide buttons and unnecessary elements in clone
-      const buttonsToHide = clone.querySelectorAll('button, .action-button, .close-button');
-      buttonsToHide.forEach(button => (button as HTMLElement).style.display = 'none');
+      const buttonsToHide = clone.querySelectorAll(
+        "button, .action-button, .close-button"
+      );
+      buttonsToHide.forEach(
+        (button) => ((button as HTMLElement).style.display = "none")
+      );
 
       // Add clone to body
       document.body.appendChild(clone);
 
       // Wait for everything to render
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff',
+        backgroundColor: "#ffffff",
         allowTaint: true,
         imageTimeout: 5000, // Increased timeout for images
       });
 
       document.body.removeChild(clone);
 
-      const imgData = canvas.toDataURL('image/png', 1.0);
+      const imgData = canvas.toDataURL("image/png", 1.0);
       const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
       // Add image to PDF with proper dimensions
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, '', 'FAST');
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight, "", "FAST");
       // pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
 
       // Save the PDF
-      console.log('Saving PDF...');
+      console.log("Saving PDF...");
       pdf.save(`invoice-${Date.now()}.pdf`);
-      console.log('PDF saved successfully');
+      console.log("PDF saved successfully");
 
       // Close modal after both operations succeed
       onClose();
     } catch (error) {
-      console.error('Failed to process invoice:', error);
-      alert(error instanceof Error ? error.message : 'Failed to process invoice. Please try again.');
+      console.error("Failed to process invoice:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to process invoice. Please try again."
+      );
     } finally {
       setIsGeneratingPDF(false);
     }
-  }
+  };
 
   if (!isOpen) return null;
 
@@ -270,7 +295,7 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
               <div className="text-sm text-gray-600 space-y-1">
                 <p>THE PREMIER NORTH PARK HUB, OFF EASTERN BYPASS</p>
                 <p>P. O. BOX 51584– 00100, NAIROBI</p>
-                <p>Cell: 0719 698 568</p>
+                <p>Cell: 0719 698 588</p>
                 <p>Email: Kimthearchitect0@gmail.com</p>
               </div>
             </div>
@@ -313,7 +338,11 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
                 <tr>
                   <th className="border border-gray-400 p-2 w-20">QUANTITY</th>
                   <th className="border border-gray-400 p-2">DESCRIPTION</th>
-                  <th className="border border-gray-400 p-2 w-24">AMOUNT<br />Kshs.</th>
+                  <th className="border border-gray-400 p-2 w-24">
+                    AMOUNT
+                    <br />
+                    Kshs.
+                  </th>
                   <th className="border border-gray-400 p-2 w-16">Cts.</th>
                 </tr>
               </thead>
@@ -325,7 +354,9 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
                         type="text"
                         className="w-full outline-none"
                         value={item.quantity}
-                        onChange={(e) => updateItem(index, 'quantity', e.target.value)}
+                        onChange={(e) =>
+                          updateItem(index, "quantity", e.target.value)
+                        }
                       />
                     </td>
                     <td className="border border-gray-400 p-2">
@@ -333,7 +364,9 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
                         type="text"
                         className="w-full outline-none"
                         value={item.description}
-                        onChange={(e) => updateItem(index, 'description', e.target.value)}
+                        onChange={(e) =>
+                          updateItem(index, "description", e.target.value)
+                        }
                       />
                     </td>
                     <td className="border border-gray-400 p-2">
@@ -341,7 +374,9 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
                         type="text"
                         className="w-full outline-none"
                         value={item.amount}
-                        onChange={(e) => updateItem(index, 'amount', e.target.value)}
+                        onChange={(e) =>
+                          updateItem(index, "amount", e.target.value)
+                        }
                       />
                     </td>
                     <td className="border border-gray-400 p-2">
@@ -349,7 +384,9 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
                         type="text"
                         className="w-full outline-none"
                         value={item.cents}
-                        onChange={(e) => updateItem(index, 'cents', e.target.value)}
+                        onChange={(e) =>
+                          updateItem(index, "cents", e.target.value)
+                        }
                       />
                     </td>
                   </tr>
@@ -365,7 +402,10 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
                   </td>
                 </tr>
                 <tr>
-                  <td colSpan={2} className="text-right border border-gray-400 p-2">
+                  <td
+                    colSpan={2}
+                    className="text-right border border-gray-400 p-2"
+                  >
                     <span className="mr-4">E&O.E</span>
                     <span>No. {invoiceNumber}</span>
                   </td>
@@ -428,7 +468,7 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
             disabled={isGeneratingPDF}
             className="bg-[#DBA463] text-white px-4 py-2 rounded-lg hover:bg-[#c28a4f] transition-colors disabled:opacity-50"
           >
-            {isGeneratingPDF ? 'Generating PDF...' : 'Download PDF'}
+            {isGeneratingPDF ? "Generating PDF..." : "Download PDF"}
           </button>
           <button
             onClick={onClose}
@@ -440,5 +480,5 @@ export const InvoiceModal = ({ isOpen, onClose, currentInvoiceNumber = 0 }: Invo
         </div>
       </div>
     </div>
-  )
-} 
+  );
+};
