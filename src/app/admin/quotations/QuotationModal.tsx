@@ -409,7 +409,7 @@ export function QuotationModal({
             <div className="text-sm text-gray-600 space-y-1">
               <p>THE PREMIER NORTH PARK HUB, OFF EASTERN BYPASS</p>
               <p>P. O. BOX 51584– 00100, NAIROBI</p>
-              <p>Cell: 0719 698 568</p>
+              <p>Cell: 0719 698 588</p>
               <p>Email: Kimthearchitect0@gmail.com</p>
               <p>Bank Account: 2044479993</p>
             </div>
@@ -605,9 +605,7 @@ export function QuotationModal({
                 className="h-16 object-contain mb-2"
               />
               <p className="font-bold">Arch.N.K. KIMATHI</p>
-              <p>
-                Director Kimthearchitect consultants & construction logistics.
-              </p>
+              <p>Director Kimthearchitect Ltd.</p>
             </div>
           </div>
         </div>

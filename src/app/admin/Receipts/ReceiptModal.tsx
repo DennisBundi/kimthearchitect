@@ -1,12 +1,12 @@
-'use client'
+"use client";
 
-import { useState, useRef, useEffect } from 'react'
-import { jsPDF } from 'jspdf'
-import html2canvas from 'html2canvas'
-import React from 'react';
-import { receiptService } from '@/services/receiptService'
-import { supabase } from '@/lib/supabase'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useState, useRef, useEffect } from "react";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
+import React from "react";
+import { receiptService } from "@/services/receiptService";
+import { supabase } from "@/lib/supabase";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 interface ReceiptItem {
   quantity: string;
@@ -21,17 +21,23 @@ interface ReceiptModalProps {
   currentReceiptNumber?: number;
 }
 
-export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: ReceiptModalProps) => {
-  const [items, setItems] = useState([{
-    quantity: '',
-    description: '',
-    amount: '0',
-    cents: '00'
-  }]);
-  const [msValue, setMsValue] = useState('');
-  const [receivedBy, setReceivedBy] = useState('');
-  const [name, setName] = useState('');
-  const [signatureDate, setSignatureDate] = useState('');
+export const ReceiptModal = ({
+  isOpen,
+  onClose,
+  currentReceiptNumber = 0,
+}: ReceiptModalProps) => {
+  const [items, setItems] = useState([
+    {
+      quantity: "",
+      description: "",
+      amount: "0",
+      cents: "00",
+    },
+  ]);
+  const [msValue, setMsValue] = useState("");
+  const [receivedBy, setReceivedBy] = useState("");
+  const [name, setName] = useState("");
+  const [signatureDate, setSignatureDate] = useState("");
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
@@ -39,10 +45,10 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
   const calculateTotal = () => {
     const amountInputs = document.querySelectorAll('input[name="amount"]');
     let total = 0;
-    
-    amountInputs.forEach(input => {
+
+    amountInputs.forEach((input) => {
       const inputElement = input as HTMLInputElement;
-      const value = parseFloat(inputElement.value || '0');
+      const value = parseFloat(inputElement.value || "0");
       if (!isNaN(value)) {
         total += value;
       }
@@ -55,15 +61,18 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
   useEffect(() => {
     if (isOpen) {
       const amountInputs = document.querySelectorAll('input[name="amount"]');
-      amountInputs.forEach(input => {
-        input.addEventListener('input', () => {
+      amountInputs.forEach((input) => {
+        input.addEventListener("input", () => {
           const totalAmount = calculateTotal();
-          const totalElement = document.querySelector('.total-amount-value');
+          const totalElement = document.querySelector(".total-amount-value");
           if (totalElement) {
-            totalElement.textContent = `ksh ${totalAmount.toLocaleString('en-KE', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2
-            })}`;
+            totalElement.textContent = `ksh ${totalAmount.toLocaleString(
+              "en-KE",
+              {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }
+            )}`;
           }
         });
       });
@@ -75,10 +84,10 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
       const supabase = createClientComponentClient();
 
       // Format items and ensure amounts are numbers
-      const formattedItems = items.map(item => ({
-        quantity: item.quantity || '0',
-        description: item.description || '',
-        amount: parseFloat(item.amount.replace(/,/g, '')) || 0,
+      const formattedItems = items.map((item) => ({
+        quantity: item.quantity || "0",
+        description: item.description || "",
+        amount: parseFloat(item.amount.replace(/,/g, "")) || 0,
       }));
 
       // Calculate total amount
@@ -86,33 +95,33 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
 
       // Simplified receipt data matching your schema
       const receiptData = {
-        receipt_number: `RCP-${String(currentReceiptNumber).padStart(3, '0')}`,
+        receipt_number: `RCP-${String(currentReceiptNumber).padStart(3, "0")}`,
         date: signatureDate || new Date().toISOString(),
         client_name: msValue,
         items: formattedItems,
         amount: totalAmount,
-        status: 'Completed',
+        status: "Completed",
         received_by: receivedBy,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       };
 
-      console.log('Saving receipt with data:', receiptData);
+      console.log("Saving receipt with data:", receiptData);
 
       const { data, error } = await supabase
-        .from('receipts')
+        .from("receipts")
         .insert([receiptData])
         .select()
         .single();
 
       if (error) {
-        console.error('Supabase error:', error);
+        console.error("Supabase error:", error);
         throw error;
       }
 
-      console.log('Receipt saved successfully:', data);
+      console.log("Receipt saved successfully:", data);
       return data;
     } catch (error) {
-      console.error('Error saving receipt:', error);
+      console.error("Error saving receipt:", error);
       throw error;
     }
   };
@@ -122,50 +131,54 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
       setIsGeneratingPDF(true);
 
       // First save to database
-      console.log('Starting receipt save...');
+      console.log("Starting receipt save...");
       const savedReceipt = await handleSaveReceipt();
-      console.log('Receipt saved successfully:', savedReceipt);
+      console.log("Receipt saved successfully:", savedReceipt);
 
       if (!receiptRef.current) {
-        throw new Error('Receipt content is not available.');
+        throw new Error("Receipt content is not available.");
       }
 
       // Then generate and download PDF
-      console.log('Starting PDF generation...');
+      console.log("Starting PDF generation...");
 
       // Make sure we're selecting the correct content
-      const modalContent = document.querySelector('.modal-content') as HTMLDivElement;
+      const modalContent = document.querySelector(
+        ".modal-content"
+      ) as HTMLDivElement;
       if (!modalContent) {
-        throw new Error('Could not find modal content');
+        throw new Error("Could not find modal content");
       }
 
       // Create a deep clone of the content
       const clone = modalContent.cloneNode(true) as HTMLDivElement;
 
       // Convert all inputs to spans with their values
-      clone.querySelectorAll('input').forEach((input: HTMLInputElement) => {
-        const span = document.createElement('span');
+      clone.querySelectorAll("input").forEach((input: HTMLInputElement) => {
+        const span = document.createElement("span");
         span.textContent = input.value;
-        span.style.width = '100%';
-        span.style.display = 'inline-block';
+        span.style.width = "100%";
+        span.style.display = "inline-block";
         input.parentNode?.replaceChild(span, input);
       });
 
       // Style the clone for PDF
-      clone.style.width = '210mm';
-      clone.style.padding = '20mm';
-      clone.style.backgroundColor = 'white';
-      clone.style.position = 'fixed';
-      clone.style.top = '0';
-      clone.style.left = '0';
-      clone.style.zIndex = '-9999';
+      clone.style.width = "210mm";
+      clone.style.padding = "20mm";
+      clone.style.backgroundColor = "white";
+      clone.style.position = "fixed";
+      clone.style.top = "0";
+      clone.style.left = "0";
+      clone.style.zIndex = "-9999";
 
       // Update the signature image in the clone
-      const signatureImg = clone.querySelector('img[alt="Signature"]') as HTMLImageElement;
+      const signatureImg = clone.querySelector(
+        'img[alt="Signature"]'
+      ) as HTMLImageElement;
       if (signatureImg) {
         const newSignature = new Image();
-        newSignature.src = '/signature.jpeg';
-        newSignature.alt = 'Signature';
+        newSignature.src = "/signature.jpeg";
+        newSignature.alt = "Signature";
         newSignature.className = signatureImg.className;
         signatureImg.parentNode?.replaceChild(newSignature, signatureImg);
 
@@ -176,81 +189,99 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
       }
 
       // Hide buttons and unnecessary elements in clone
-      const buttonsToHide = clone.querySelectorAll('button, .action-button, .close-button');
-      buttonsToHide.forEach(button => (button as HTMLElement).style.display = 'none');
+      const buttonsToHide = clone.querySelectorAll(
+        "button, .action-button, .close-button"
+      );
+      buttonsToHide.forEach(
+        (button) => ((button as HTMLElement).style.display = "none")
+      );
 
       // Add clone to body
       document.body.appendChild(clone);
 
       // Wait for everything to render
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff',
+        backgroundColor: "#ffffff",
         allowTaint: true,
         imageTimeout: 5000, // Increased timeout for images
       });
 
       document.body.removeChild(clone);
 
-      const imgData = canvas.toDataURL('image/png', 1.0);
+      const imgData = canvas.toDataURL("image/png", 1.0);
       const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
       // Add image to PDF with proper dimensions
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, '', 'FAST');
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight, "", "FAST");
 
       // Save the PDF
-      console.log('Saving PDF...');
+      console.log("Saving PDF...");
       pdf.save(`receipt-${currentReceiptNumber}.pdf`);
-      console.log('PDF saved successfully');
+      console.log("PDF saved successfully");
 
       // Close modal after both operations succeed
       onClose();
     } catch (error) {
-      console.error('Failed to process receipt:', error);
-      alert(error instanceof Error ? error.message : 'Failed to process receipt. Please try again.');
+      console.error("Failed to process receipt:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to process receipt. Please try again."
+      );
     } finally {
       setIsGeneratingPDF(false);
     }
   };
 
   const addNewRow = () => {
-    setItems([...items, { quantity: '', description: '', amount: '', cents: '' }]);
+    setItems([
+      ...items,
+      { quantity: "", description: "", amount: "", cents: "" },
+    ]);
   };
 
   const handleItemChange = (index: number, field: string, value: string) => {
     const newItems = [...items];
     newItems[index] = {
       ...newItems[index],
-      [field]: value
+      [field]: value,
     };
     setItems(newItems);
   };
 
   const getTableItems = () => {
     const items: ReceiptItem[] = [];
-    const rows = document.querySelectorAll('tr:not(:first-child)');
-    
-    rows.forEach(row => {
-      const quantity = (row.querySelector('input[name="quantity"]') as HTMLInputElement)?.value || '';
-      const description = (row.querySelector('input[name="description"]') as HTMLInputElement)?.value || '';
-      const amount = parseFloat((row.querySelector('input[name="amount"]') as HTMLInputElement)?.value || '0');
-      
+    const rows = document.querySelectorAll("tr:not(:first-child)");
+
+    rows.forEach((row) => {
+      const quantity =
+        (row.querySelector('input[name="quantity"]') as HTMLInputElement)
+          ?.value || "";
+      const description =
+        (row.querySelector('input[name="description"]') as HTMLInputElement)
+          ?.value || "";
+      const amount = parseFloat(
+        (row.querySelector('input[name="amount"]') as HTMLInputElement)
+          ?.value || "0"
+      );
+
       items.push({
         quantity,
         description,
         amount: amount.toString(),
-        cents: '00'
+        cents: "00",
       });
     });
     return items;
@@ -350,7 +381,7 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
 
   // Add styles in component
   useEffect(() => {
-    const styleSheet = document.createElement('style');
+    const styleSheet = document.createElement("style");
     styleSheet.textContent = receiptTableStyles;
     document.head.appendChild(styleSheet);
 
@@ -358,9 +389,6 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
       document.head.removeChild(styleSheet);
     };
   }, []);
-
-  
-
 
   if (!isOpen) return null;
 
@@ -372,9 +400,9 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
             {/* Header */}
             <div className="text-center mb-8">
               <div className="flex justify-center mb-4">
-                <img 
-                  src="/mainlogo.svg" 
-                  alt="Kimthearchitect Logo" 
+                <img
+                  src="/mainlogo.svg"
+                  alt="Kimthearchitect Logo"
                   className="h-16 object-contain"
                 />
               </div>
@@ -384,7 +412,7 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
               <div className="text-sm text-gray-600 space-y-1">
                 <p>THE PREMIER NORTH PARK HUB, OFF EASTERN BYPASS</p>
                 <p>P. O. BOX 51584– 00100, NAIROBI</p>
-                <p>Cell: 0719 698 568</p>
+                <p>Cell: 0719 698 588</p>
                 <p>Email: kimthearchitect0@gmail.com</p>
               </div>
             </div>
@@ -399,7 +427,8 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
                 </div>
               </div>
               <div className="text-[12px]">
-                Date: <input type="date" className="border-b border-gray-400 ml-2" />
+                Date:{" "}
+                <input type="date" className="border-b border-gray-400 ml-2" />
               </div>
             </div>
 
@@ -433,7 +462,9 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
                           type="number"
                           name="quantity"
                           value={item.quantity}
-                          onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                          onChange={(e) =>
+                            handleItemChange(index, "quantity", e.target.value)
+                          }
                         />
                       </td>
                       <td>
@@ -441,7 +472,13 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
                           type="text"
                           name="description"
                           value={item.description}
-                          onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                          onChange={(e) =>
+                            handleItemChange(
+                              index,
+                              "description",
+                              e.target.value
+                            )
+                          }
                         />
                       </td>
                       <td>
@@ -449,7 +486,9 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
                           type="number"
                           name="amount"
                           value={item.amount}
-                          onChange={(e) => handleItemChange(index, 'amount', e.target.value)}
+                          onChange={(e) =>
+                            handleItemChange(index, "amount", e.target.value)
+                          }
                         />
                       </td>
                       <td>00</td>
@@ -457,15 +496,21 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
                   ))}
                   <tr className="total-row">
                     <td colSpan={2}>E&O.E No. 006</td>
-                    <td style={{ fontWeight: 'bold' }}>{calculateTotal().toLocaleString('en-KE', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}</td>
+                    <td style={{ fontWeight: "bold" }}>
+                      {calculateTotal().toLocaleString("en-KE", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </td>
                     <td>00</td>
                   </tr>
                 </tbody>
               </table>
-              <button type="button" className="add-row-button" onClick={addNewRow}>
+              <button
+                type="button"
+                className="add-row-button"
+                onClick={addNewRow}
+              >
                 + <span>Add New Row</span>
               </button>
             </div>
@@ -493,9 +538,9 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
                   />
                 </div>
                 <div className="flex flex-col items-end mt-6">
-                  <img 
-                    src="/signature.jpeg" 
-                    alt="Signature" 
+                  <img
+                    src="/signature.jpeg"
+                    alt="Signature"
                     className="h-16 object-contain mb-2"
                   />
                   <p>Signature</p>
@@ -507,14 +552,14 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
 
         {/* Action Buttons */}
         <div className="sticky bottom-0 bg-white p-4 border-t border-gray-200 flex justify-end space-x-3">
-          <button 
+          <button
             className="bg-[#DBA463] text-white px-4 py-2 rounded-lg hover:bg-[#c28a4f] transition-colors"
             onClick={handleDownloadPDF2}
             disabled={isGeneratingPDF}
           >
             Download Receipt PDF
           </button>
-          <button 
+          <button
             className="bg-gray-600 text-white px-4 py-2 rounded text-sm hover:bg-gray-700"
             onClick={onClose}
           >
@@ -524,4 +569,4 @@ export const ReceiptModal = ({ isOpen, onClose, currentReceiptNumber = 0 }: Rece
       </div>
     </div>
   );
-}; 
+};
