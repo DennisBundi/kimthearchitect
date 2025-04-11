@@ -310,7 +310,7 @@ export default function Home() {
                 icon: "🎨",
               },
               {
-                title: "Construction Service",
+                title: "Construction Services",
                 description: "Expert construction management and execution.",
                 icon: "🏗️",
               },
