@@ -108,35 +108,40 @@ export const InvoiceModal = ({
       } = await supabase.auth.getSession();
       if (!session) throw new Error("No authenticated session found");
 
-      // Format items and ensure amounts are numbers
-      const formattedItems = items.map((item) => ({
-        quantity: item.quantity || "0",
-        description: item.description || "",
-        amount: parseFloat(item.amount.replace(/,/g, "")) || 0, // Remove commas and convert to number
-        cents: item.cents || "00",
-      }));
+      // Format the date properly
+      const formattedDate = new Date(signatureDate).toISOString();
 
-      // Calculate total amount - ensure it's a number
+      // Format items and ensure amounts are numbers
+      const formattedItems = items
+        .filter((item) => item.quantity || item.description || item.amount) // Only include non-empty items
+        .map((item) => ({
+          quantity: parseInt(item.quantity) || 0,
+          description: item.description || "",
+          amount: parseFloat(item.amount.replace(/,/g, "")) || 0,
+          cents: parseInt(item.cents) || 0,
+        }));
+
+      // Calculate total amount including cents
       const totalAmount = formattedItems.reduce((sum, item) => {
-        const itemAmount =
-          parseFloat(item.amount.toString().replace(/,/g, "")) || 0;
-        const itemQuantity = parseFloat(item.quantity) || 0;
+        const itemAmount = item.amount;
+        const itemQuantity = item.quantity;
         return sum + itemAmount * itemQuantity;
       }, 0);
 
       const invoiceData = {
         invoice_number: `INV-${invoiceNumber}`,
-        date: signatureDate || new Date().toISOString(),
+        date: formattedDate,
         client_name: name || "",
+        received_by: receivedBy || "",
         items: formattedItems,
-        amount: totalAmount, // Ensure this is a number
-        total_amount: totalAmount, // Ensure this is a number
-        status: "pending",
+        amount: totalAmount,
+        total_amount: totalAmount,
+        status: "pending" as InvoiceStatus,
         user_id: session.user.id,
         created_at: new Date().toISOString(),
       };
 
-      console.log("Saving invoice with data:", invoiceData); // For debugging
+      console.log("Saving invoice with data:", invoiceData);
 
       const { data, error } = await supabase
         .from("invoices")
