@@ -259,7 +259,7 @@ export default function Home() {
               className="relative h-[500px] bg-gray-100 rounded-lg overflow-hidden"
             >
               <Image
-                src="/arc.jpg"
+                src="/house.jpeg"
                 alt="Innovative Architecture Design"
                 fill
                 className="object-cover rounded-lg transition-opacity duration-300"
