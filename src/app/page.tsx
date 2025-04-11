@@ -571,7 +571,7 @@ export default function Home() {
                     href="tel:+254196985888"
                     className="hover:text-[#DBA463] transition-colors"
                   >
-                    +254 196 98588
+                    +254 7196 98588
                   </a>
                 </li>
 
