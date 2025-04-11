@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { useUserContext } from "@/store/UserContext";
 import { userService } from "@/services/userService";
 import { useApi } from "@/hooks/useApi";
+import { User, ApiError } from "@/types";
 
 export function UserList() {
   const { state, dispatch } = useUserContext();
@@ -26,7 +27,8 @@ export function UserList() {
       const newUser = await userService.createUser(userData);
       dispatch({ type: "ADD_USER", payload: newUser });
     } catch (error) {
-      dispatch({ type: "SET_ERROR", payload: error.message });
+      const apiError = error as ApiError;
+      dispatch({ type: "SET_ERROR", payload: apiError.message });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
@@ -38,7 +40,8 @@ export function UserList() {
       const updatedUser = await userService.updateUser(id, userData);
       dispatch({ type: "UPDATE_USER", payload: updatedUser });
     } catch (error) {
-      dispatch({ type: "SET_ERROR", payload: error.message });
+      const apiError = error as ApiError;
+      dispatch({ type: "SET_ERROR", payload: apiError.message });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
@@ -50,7 +53,8 @@ export function UserList() {
       await userService.deleteUser(id);
       dispatch({ type: "DELETE_USER", payload: id });
     } catch (error) {
-      dispatch({ type: "SET_ERROR", payload: error.message });
+      const apiError = error as ApiError;
+      dispatch({ type: "SET_ERROR", payload: apiError.message });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
